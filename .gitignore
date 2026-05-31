@@ -1,0 +1,4 @@
+# Ignore Google Cloud credential json files
+KJOnline.json
+*.json.credential
+*.secret

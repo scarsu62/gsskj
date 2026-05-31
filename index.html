@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KJ 親和法多人 AI 協作平台</title>
+  
+  <!-- FontAwesome for Premium Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Core stylesheet -->
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+  <!-- Toast Notification System -->
+  <div id="toast-container"></div>
+
+  <!-- LOBBY SCREEN (LOGIN) -->
+  <div id="lobby-screen" class="lobby-container">
+    <div class="lobby-card glass-panel">
+      <div class="lobby-header">
+        <h1><i class="fa-solid fa-network-wired"></i> KJ 親和法協作平台</h1>
+        <p>多人即時連線 • AI 收斂歸類 • 多輪高階迭代</p>
+      </div>
+
+      <!-- Tab Selectors -->
+      <div class="lobby-tabs">
+        <button id="tab-student" class="lobby-tab active"><i class="fa-solid fa-graduation-cap"></i> 團隊成員</button>
+        <button id="tab-teacher" class="lobby-tab"><i class="fa-solid fa-chalkboard-user"></i> 講師巡房</button>
+      </div>
+
+      <!-- Student Login Form -->
+      <form id="form-student" class="lobby-form active" onsubmit="return false;">
+        <div class="form-group">
+          <label for="student-name">個人暱稱</label>
+          <input type="text" id="student-name" placeholder="例如：王小明" required>
+        </div>
+        <div class="form-group">
+          <label for="student-room">聊天室（房間）名稱</label>
+          <input type="text" id="student-room" placeholder="例如：設計思考小組A" required>
+        </div>
+        <button type="submit" id="btn-join-student" class="btn btn-primary">
+          <i class="fa-solid fa-right-to-bracket"></i> 加入房間協作
+        </button>
+      </form>
+
+      <!-- Teacher Login Form -->
+      <form id="form-teacher" class="lobby-form" onsubmit="return false;">
+        <div class="form-group">
+          <label for="teacher-password">講師專屬安全密語</label>
+          <input type="password" id="teacher-password" placeholder="請輸入密語..." required>
+        </div>
+        <div class="form-group">
+          <label for="teacher-room-select">選擇要巡房的房間</label>
+          <select id="teacher-room-select" disabled>
+            <option value="">請先輸入正確的密語...</option>
+          </select>
+        </div>
+        <button type="submit" id="btn-join-teacher" class="btn btn-teacher" disabled>
+          <i class="fa-solid fa-magnifying-glass-chart"></i> 瞬間切換巡房
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- COLLABORATIVE BOARD SCREEN (MAIN APP) -->
+  <div id="app-screen" class="app-container">
+    
+    <!-- Navigation Header -->
+    <header>
+      <div class="header-logo">
+        <h2><i class="fa-solid fa-network-wired"></i> KJ 親和白板</h2>
+        <div id="connection-indicator" class="connection-badge offline" title="點擊設定連線">
+          <span class="dot"></span> <span id="connection-status-text">本地離線模式</span>
+        </div>
+      </div>
+      
+      <!-- Central Nav (Teacher view room switcher) -->
+      <div class="header-center">
+        <div id="teacher-nav" class="teacher-room-selector-container">
+          <label for="header-room-select"><i class="fa-solid fa-chalkboard-user"></i> 巡房中：</label>
+          <select id="header-room-select" class="room-select">
+            <option value="">載入房間中...</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div id="user-badge" class="user-badge">
+          <i class="fa-solid fa-user"></i> <span id="user-display-name">學員: </span>
+        </div>
+        <button id="btn-share" class="btn btn-secondary" title="複製快速邀請連結">
+          <i class="fa-solid fa-share-nodes"></i> 分享邀請
+        </button>
+        <button id="btn-logout" class="btn btn-secondary" title="登出並返回大廳">
+          <i class="fa-solid fa-right-from-bracket"></i> 登出
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="workspace">
+      
+      <!-- Sidebar Control Panel -->
+      <aside class="sidebar">
+        <!-- Card Creator Section (Students only) -->
+        <div id="card-creator-section" class="sidebar-section">
+          <h3><i class="fa-solid fa-pen-fancy"></i> 新增想法卡片</h3>
+          <div class="card-input-box">
+            <textarea id="card-input" class="card-textarea" placeholder="輸入您的點子或想法...&#10;(按 Enter 送出，Shift+Enter 換行)"></textarea>
+            <div class="input-tip">按 Enter 直接送出</div>
+            <button id="btn-add-card" class="btn btn-primary">
+              <i class="fa-solid fa-plus"></i> 送出卡片
+            </button>
+          </div>
+        </div>
+
+        <!-- Round Information & Controls -->
+        <div class="sidebar-section">
+          <h3><i class="fa-solid fa-arrows-spin"></i> 輪次收斂管理</h3>
+          <div class="round-card">
+            <div class="round-info">
+              <span class="round-label">當前輪次</span>
+              <span id="display-round-num" class="round-number">第 1 輪</span>
+            </div>
+            <div id="round-desc" style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">
+              收集想法，並點擊 AI 歸類或手動拖曳卡片進行親和歸類。
+            </div>
+          </div>
+          
+          <!-- Actions -->
+          <div id="student-actions" style="display: flex; flex-direction: column; gap: 10px;">
+            <button id="btn-ai-group" class="btn btn-primary" style="background: linear-gradient(135deg, #4f46e5, #2563eb);">
+              <i class="fa-solid fa-brain"></i> 一鍵 AI 親和歸類
+            </button>
+            <button id="btn-new-group" class="btn btn-secondary">
+              <i class="fa-solid fa-folder-plus"></i> 建立自訂新群組
+            </button>
+            <button id="btn-advance-round" class="btn btn-secondary" style="border-color: var(--primary); color: var(--primary);">
+              <i class="fa-solid fa-circle-arrow-up"></i> 晉級下一輪 (高階收斂)
+            </button>
+          </div>
+
+          <!-- Teacher Action (Reset Room) -->
+          <div id="teacher-actions" style="display: none; flex-direction: column; gap: 10px;">
+            <div style="font-size: 0.8rem; color: var(--teacher-primary); font-weight: 600; padding: 4px; background: var(--teacher-light); border-radius: var(--radius-sm); border: 1px solid rgba(217, 119, 6, 0.2);">
+              <i class="fa-solid fa-circle-info"></i> 您擁有重置此房間資料的管理權限。
+            </div>
+            <button id="btn-reset-room" class="btn btn-danger">
+              <i class="fa-solid fa-trash-arrow-up"></i> 重置房間 (清空所有資料)
+            </button>
+          </div>
+        </div>
+
+        <!-- Export Section -->
+        <div class="sidebar-section">
+          <h3><i class="fa-solid fa-file-export"></i> 成果匯出</h3>
+          <div style="display: flex; gap: 10px;">
+            <button id="btn-export-md" class="btn btn-secondary" style="flex: 1; padding: 10px;" title="生成 Markdown 結構">
+              <i class="fa-solid fa-file-code"></i> 匯出 MD
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Display View Canvas -->
+      <main class="main-content">
+        <!-- Content Area Navigation Toolbar -->
+        <div class="content-toolbar">
+          <div class="toolbar-title">
+            <i class="fa-solid fa-door-open"></i> 房間名稱：<span id="display-room-name">未加入</span>
+          </div>
+          
+          <!-- View Toggle Tabs -->
+          <div class="view-tabs">
+            <button id="view-tab-board" class="view-tab active">
+              <i class="fa-solid fa-table-columns"></i> 親和分組畫板 (Board)
+            </button>
+            <button id="view-tab-tree" class="view-tab">
+              <i class="fa-solid fa-sitemap"></i> 階層樹狀關聯圖 (Tree)
+            </button>
+          </div>
+        </div>
+
+        <!-- Canvas Container for Panels -->
+        <div class="canvas-container">
+          <!-- BOARD VIEW PANEL -->
+          <div id="panel-board" class="view-panel active">
+            <div id="board-canvas" class="board-layout">
+              <!-- Board Columns are populated dynamically here -->
+            </div>
+          </div>
+
+          <!-- TREE VIEW PANEL -->
+          <div id="panel-tree" class="view-panel">
+            <div id="tree-canvas" class="tree-container">
+              <!-- Collapsible Tree nodes populated dynamically here -->
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- MARKDOWN EXPORT MODAL -->
+  <div id="modal-export" class="modal-overlay">
+    <div class="modal glass-panel" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-file-lines"></i> 匯出為階層 Markdown</h3>
+        <button id="modal-export-close" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">
+          系統已將 KJ 親和圖歸類結果整理為具備階層縮排的 Markdown 語法，適合直接複製貼入 Notion 或 Obsidian。
+        </p>
+        <div class="form-group">
+          <textarea id="export-textarea" class="card-textarea" style="height: 300px; font-family: monospace; font-size: 0.85rem;" readonly></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-google-drive" class="btn btn-secondary" style="border-color: #4285f4; color: #4285f4;" title="上傳至您的 Google Drive">
+          <i class="fa-brands fa-google-drive"></i> 儲存至 Google Drive
+        </button>
+        <button id="btn-copy-md" class="btn btn-secondary">
+          <i class="fa-solid fa-copy"></i> 一鍵複製
+        </button>
+        <button id="btn-download-md" class="btn btn-primary">
+          <i class="fa-solid fa-download"></i> 下載檔案
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google Identity Services SDK -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!-- Firebase Compat libraries loaded via CDN -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <!-- Local App Scripts loaded sequentially -->
+  <script src="js/config.js"></script>
+  <script src="js/gemini-api.js"></script>
+  <script src="js/firebase-db.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
