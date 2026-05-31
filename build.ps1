@@ -10,7 +10,7 @@ $AppPath = Join-Path $PSScriptRoot "js/app.js"
 $OutputPath = Join-Path $PSScriptRoot "dist/index_combined.html"
 
 if (-not (Test-Path $HtmlPath)) {
-    Write-Error "找不到 index.html"
+    Write-Error "Cannot find index.html"
     exit 1
 }
 
@@ -40,7 +40,27 @@ if (-not (Test-Path $DistDir)) {
 $html | Set-Content -Encoding utf8 -Path $OutputPath
 
 Write-Host "=============================================" -ForegroundColor Green
-Write-Host "成功生成單一整合網頁檔案！" -ForegroundColor Green
-Write-Host "輸出路徑：$OutputPath" -ForegroundColor Green
-Write-Host "您可以直接複製此檔案的全部內容，並貼入 Google Sites 的『嵌入程式碼』中。" -ForegroundColor Green
+Write-Host "Build Succeeded!" -ForegroundColor Green
+Write-Host "Output file: $OutputPath" -ForegroundColor Green
 Write-Host "=============================================" -ForegroundColor Green
+
+# 5. Git Commit & Push (Auto Deploy)
+Write-Host "Checking Git status..." -ForegroundColor Cyan
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    $status = git status --porcelain
+    if ($status) {
+        Write-Host "Changes detected. Committing..." -ForegroundColor Cyan
+        git add .
+        $commitMsg = "Auto-rebuild and deploy: $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))"
+        git commit -m $commitMsg
+        Write-Host "Pushing to GitHub..." -ForegroundColor Cyan
+        git push
+        Write-Host "=============================================" -ForegroundColor Green
+        Write-Host "Auto-deploy successful! Pages will update in 1-2 minutes." -ForegroundColor Green
+        Write-Host "=============================================" -ForegroundColor Green
+    } else {
+        Write-Host "No changes detected. Skipping git commit." -ForegroundColor Yellow
+    }
+} else {
+    Write-Warning "Git command not found in PATH. Please deploy manually."
+}

@@ -63,6 +63,7 @@ const dom = {
   btnAiGroup: document.getElementById("btn-ai-group"),
   btnNewGroup: document.getElementById("btn-new-group"),
   btnAdvanceRound: document.getElementById("btn-advance-round"),
+  btnRevertRound: document.getElementById("btn-revert-round"),
   teacherActions: document.getElementById("teacher-actions"),
   btnResetRoom: document.getElementById("btn-reset-room"),
   btnExportMd: document.getElementById("btn-export-md"),
@@ -83,7 +84,6 @@ const dom = {
   modalExport: document.getElementById("modal-export"),
   modalExportClose: document.getElementById("modal-export-close"),
   exportTextarea: document.getElementById("export-textarea"),
-  btnGoogleDrive: document.getElementById("btn-google-drive"),
   btnCopyMd: document.getElementById("btn-copy-md"),
   btnDownloadMd: document.getElementById("btn-download-md")
 };
@@ -167,9 +167,19 @@ function bindUIEvents() {
   // Lobby Login Event
   dom.btnJoinStudent.addEventListener("click", handleStudentJoin);
   dom.btnJoinTeacher.addEventListener("click", handleTeacherJoin);
+  
+  dom.formStudent.addEventListener("submit", (e) => {
+    e.preventDefault();
+    handleStudentJoin();
+  });
+  dom.formTeacher.addEventListener("submit", (e) => {
+    e.preventDefault();
+    handleTeacherJoin();
+  });
 
   // Password Listener for Teacher Room Fetching
   dom.teacherPassword.addEventListener("input", handleTeacherPasswordInput);
+  dom.teacherPassword.addEventListener("change", handleTeacherPasswordInput);
 
   // Room Switching Listener (Teacher only)
   dom.headerRoomSelect.addEventListener("change", (e) => {
@@ -181,7 +191,6 @@ function bindUIEvents() {
   // Export & Export Modal
   dom.btnExportMd.addEventListener("click", handleExportMarkdown);
   dom.modalExportClose.addEventListener("click", () => toggleModal(dom.modalExport, false));
-  dom.btnGoogleDrive.addEventListener("click", handleGoogleDriveUpload);
   dom.btnCopyMd.addEventListener("click", handleCopyExport);
   dom.btnDownloadMd.addEventListener("click", handleDownloadExport);
 
@@ -204,6 +213,7 @@ function bindUIEvents() {
   dom.btnAiGroup.addEventListener("click", handleAIGrouping);
   dom.btnNewGroup.addEventListener("click", handleCreateCustomGroup);
   dom.btnAdvanceRound.addEventListener("click", handleAdvanceRound);
+  dom.btnRevertRound.addEventListener("click", handleRevertRound);
   dom.btnResetRoom.addEventListener("click", handleResetRoom);
 
   // View Panel Tabs
@@ -373,6 +383,12 @@ function onRoomStateUpdate(roomState) {
     dom.roundDesc.textContent = "第一階段：收集卡片與基本親和分組。可以拖曳卡片或點擊 AI 一鍵歸類。";
   } else {
     dom.roundDesc.textContent = `第 ${state.currentRound + 1} 階段：將前一輪的分類標籤當作「高階卡片」，進行更高層次的抽象收斂歸類。`;
+  }
+
+  if (state.userRole === "student" && state.currentRound > 0) {
+    dom.btnRevertRound.style.display = "block";
+  } else {
+    dom.btnRevertRound.style.display = "none";
   }
 
   updateHeaderRoomDropdown();
@@ -928,6 +944,41 @@ function handleAdvanceRound() {
   }
 }
 
+function handleRevertRound() {
+  if (state.userRole !== "student") return;
+  if (state.currentRound <= 0) return;
+
+  const confirmMsg = "⚠️ 確定要退回到上一輪嗎？\n這將會：\n1. 刪除目前輪次（第 " + (state.currentRound + 1) + " 輪）的所有卡片與分組資料。\n2. 退回至上一輪（第 " + state.currentRound + " 輪），且將上一輪的所有群組解散（恢復為未分群狀態），以便您重新進行分組。\n\n確定要執行此操作嗎？";
+  
+  if (confirm(confirmMsg)) {
+    const prevRound = state.currentRound - 1;
+
+    // 1. Remove all cards and groups of currentRound
+    state.cards = state.cards.filter(c => c.round <= prevRound);
+    state.groups = state.groups.filter(g => g.round <= prevRound);
+
+    // 2. For the prevRound cards, dissolve all groups
+    state.cards.forEach(c => {
+      if (c.round === prevRound) {
+        c.groupId = null;
+      }
+    });
+
+    // 3. Remove all groups in prevRound
+    state.groups = state.groups.filter(g => g.round !== prevRound);
+
+    state.currentRound = prevRound;
+
+    window.dbService.updateRoomState(state.roomName, {
+      round: prevRound,
+      cards: state.cards,
+      groups: state.groups
+    });
+
+    showToast(`已退回到第 ${prevRound + 1} 輪，並解散了該輪的分群，您可以重新分組！`, "success");
+  }
+}
+
 // -------------------------------------------------------------
 // TEACHER ACTIONS
 // -------------------------------------------------------------
@@ -1060,98 +1111,7 @@ function handleDownloadExport() {
   showToast("Markdown 報告下載完成！", "success");
 }
 
-// -------------------------------------------------------------
-// GOOGLE DRIVE BACKUP INTEGRATION
-// -------------------------------------------------------------
-let tokenClient = null;
 
-async function handleGoogleDriveUpload() {
-  const clientId = window.SYSTEM_CONFIG ? window.SYSTEM_CONFIG.GOOGLE_CLIENT_ID : null;
-  const isValidClient = clientId && clientId !== "" && !clientId.startsWith("YOUR_");
-
-  if (!isValidClient) {
-    showToast("系統尚未配置 Google Client ID，請聯繫管理員填寫 config.js 設定檔！", "error");
-    return;
-  }
-
-  if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
-    showToast("Google SDK 尚未載入完成，請確認已連上網並稍候重試！", "error");
-    return;
-  }
-
-  dom.btnGoogleDrive.disabled = true;
-  dom.btnGoogleDrive.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 授權中...';
-
-  try {
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: 'https://www.googleapis.com/auth/drive.file',
-      callback: async (tokenResponse) => {
-        if (tokenResponse.error !== undefined) {
-          dom.btnGoogleDrive.disabled = false;
-          dom.btnGoogleDrive.innerHTML = '<i class="fa-brands fa-google-drive"></i> 儲存至 Google Drive';
-          showToast(`授權失敗: ${tokenResponse.error}`, "error");
-          return;
-        }
-        
-        dom.btnGoogleDrive.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 上傳中...';
-        try {
-          await uploadFileToGoogleDrive(tokenResponse.access_token);
-          showToast("備份成功！已將收斂成果存入您的 Google Drive！", "success");
-        } catch (uploadError) {
-          console.error("Upload error:", uploadError);
-          showToast("上傳檔案失敗，請檢查網路或用戶端權限！", "error");
-        } finally {
-          dom.btnGoogleDrive.disabled = false;
-          dom.btnGoogleDrive.innerHTML = '<i class="fa-brands fa-google-drive"></i> 儲存至 Google Drive';
-        }
-      },
-    });
-
-    tokenClient.requestAccessToken({ prompt: 'consent' });
-  } catch (e) {
-    console.error("GIS client init failed:", e);
-    dom.btnGoogleDrive.disabled = false;
-    dom.btnGoogleDrive.innerHTML = '<i class="fa-brands fa-google-drive"></i> 儲存至 Google Drive';
-    showToast("授權視窗開啟失敗，請檢查 Client ID 是否正確！", "error");
-  }
-}
-
-async function uploadFileToGoogleDrive(accessToken) {
-  const metadata = {
-    name: `KJ_Affinity_${state.roomName}.md`,
-    mimeType: 'text/markdown'
-  };
-  
-  const fileContent = dom.exportTextarea.value;
-  const boundary = '314159265358979323846';
-  const delimiter = `\r\n--${boundary}\r\n`;
-  const closeDelimiter = `\r\n--${boundary}--`;
-  
-  const body = 
-    delimiter +
-    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-    JSON.stringify(metadata) +
-    delimiter +
-    'Content-Type: text/markdown; charset=UTF-8\r\n\r\n' +
-    fileContent +
-    closeDelimiter;
-
-  const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': `multipart/related; boundary=${boundary}`,
-    },
-    body: body
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    console.error("Drive upload API error details:", errText);
-    throw new Error(`Upload failed: ${response.status}`);
-  }
-}
 
 // -------------------------------------------------------------
 // UTILITIES

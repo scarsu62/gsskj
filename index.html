@@ -143,6 +143,9 @@
             <button id="btn-advance-round" class="btn btn-secondary" style="border-color: var(--primary); color: var(--primary);">
               <i class="fa-solid fa-circle-arrow-up"></i> 晉級下一輪 (高階收斂)
             </button>
+            <button id="btn-revert-round" class="btn btn-secondary" style="border-color: #ef4444; color: #ef4444; display: none;">
+              <i class="fa-solid fa-circle-arrow-down"></i> 退回前一輪 (重新分組)
+            </button>
           </div>
 
           <!-- Teacher Action (Reset Room) -->
@@ -222,9 +225,6 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button id="btn-google-drive" class="btn btn-secondary" style="border-color: #4285f4; color: #4285f4;" title="上傳至您的 Google Drive">
-          <i class="fa-brands fa-google-drive"></i> 儲存至 Google Drive
-        </button>
         <button id="btn-copy-md" class="btn btn-secondary">
           <i class="fa-solid fa-copy"></i> 一鍵複製
         </button>
@@ -235,8 +235,7 @@
     </div>
   </div>
 
-  <!-- Google Identity Services SDK -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
 
   <!-- Firebase Compat libraries loaded via CDN -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
