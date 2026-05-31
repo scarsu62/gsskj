@@ -12,6 +12,45 @@ function generateUUID() {
   });
 }
 
+// Helper: SHA-256 Hasher (for secure password check)
+async function computeSHA256(str) {
+  const msgBuffer = new TextEncoder().encode(str);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Helper: Web-Safe Cipher for Room Name encoding to prevent easy F12 guessing
+const CIPHER_KEY = 42;
+
+function encodeRoomName(roomName) {
+  const utf8Encoder = new TextEncoder();
+  const bytes = utf8Encoder.encode(roomName);
+  const xorBytes = Array.from(bytes).map(b => b ^ CIPHER_KEY);
+  const binStr = String.fromCharCode(...xorBytes);
+  const base64 = btoa(binStr);
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function decodeRoomName(encodedStr) {
+  try {
+    let base64 = encodedStr.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+    const binStr = atob(base64);
+    const xorBytes = new Uint8Array(binStr.length);
+    for (let i = 0; i < binStr.length; i++) {
+      xorBytes[i] = binStr.charCodeAt(i) ^ CIPHER_KEY;
+    }
+    const utf8Decoder = new TextDecoder();
+    return utf8Decoder.decode(xorBytes);
+  } catch (e) {
+    console.error("Failed to decode room name:", e);
+    return "";
+  }
+}
+
 // App State
 let state = {
   userRole: null, // "student" or "teacher"
@@ -140,8 +179,14 @@ function initApp() {
   const urlParams = new URLSearchParams(window.location.search);
   const urlRoom = urlParams.get("room");
   if (urlRoom) {
-    dom.studentRoom.value = urlRoom;
-    showToast(`偵測到邀請連結，已為您填入房間：${urlRoom}`, "success");
+    const decodedRoom = decodeRoomName(urlRoom);
+    if (decodedRoom) {
+      dom.studentRoom.value = decodedRoom;
+      showToast(`偵測到邀請連結，已為您填入房間：${decodedRoom}`, "success");
+    } else {
+      dom.studentRoom.value = urlRoom;
+      showToast(`偵測到邀請連結，已為您填入房間：${urlRoom}`, "success");
+    }
   }
 
   // Connect DB
@@ -238,14 +283,24 @@ function switchLobbyTab(role) {
   }
 }
 
-function handleTeacherPasswordInput() {
+async function handleTeacherPasswordInput() {
   const value = dom.teacherPassword.value.trim();
-  if (value.toLowerCase() === "kjonline") {
+  if (!value) {
+    dom.teacherRoomSelect.disabled = true;
+    dom.teacherRoomInput.disabled = true;
+    dom.btnJoinTeacher.disabled = true;
+    return;
+  }
+  const hash = await computeSHA256(value.toLowerCase());
+  if (hash === "d44391e4575971a27e1f7d54b172a392b49526e036e476713915155f3069b139") {
+    const wasDisabled = dom.teacherRoomSelect.disabled;
     dom.teacherRoomSelect.disabled = false;
     dom.teacherRoomInput.disabled = false;
     dom.btnJoinTeacher.disabled = false;
-    showToast("密語驗證成功，正在讀取線上活躍房間...", "success");
-    window.dbService.subscribeToActiveRooms();
+    if (wasDisabled) {
+      showToast("密語驗證成功，正在讀取線上活躍房間...", "success");
+      window.dbService.subscribeToActiveRooms();
+    }
   } else {
     dom.teacherRoomSelect.disabled = true;
     dom.teacherRoomInput.disabled = true;
@@ -269,7 +324,15 @@ function handleStudentJoin() {
   enterApp();
 }
 
-function handleTeacherJoin() {
+async function handleTeacherJoin() {
+  const value = dom.teacherPassword.value.trim();
+  const hash = await computeSHA256(value.toLowerCase());
+  if (hash !== "d44391e4575971a27e1f7d54b172a392b49526e036e476713915155f3069b139") {
+    showToast("講師專屬安全密語不正確！", "error");
+    dom.teacherPassword.focus();
+    return;
+  }
+
   const manualRoom = dom.teacherRoomInput.value.trim();
   const selectedRoom = dom.teacherRoomSelect.value;
   const roomToJoin = manualRoom || selectedRoom;
@@ -307,6 +370,10 @@ function enterApp() {
   dom.lobbyScreen.style.display = "none";
   dom.appScreen.classList.add("active");
 
+  const encodedRoom = encodeRoomName(state.roomName);
+  const newUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(encodedRoom)}`;
+  window.history.replaceState({ path: newUrl }, "", newUrl);
+
   window.dbService.subscribeToRoom(state.roomName);
   
   showToast(`已登入房間：${state.roomName}`, "success");
@@ -317,7 +384,8 @@ function switchRoom(newRoomName) {
   dom.displayRoomName.textContent = newRoomName;
   window.dbService.subscribeToRoom(newRoomName);
   
-  const newUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(newRoomName)}`;
+  const encodedRoom = encodeRoomName(newRoomName);
+  const newUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(encodedRoom)}`;
   window.history.pushState({ path: newUrl }, "", newUrl);
 
   showToast(`已切換至房間：${newRoomName}`, "success");
@@ -998,7 +1066,8 @@ function handleResetRoom() {
 function handleShareLink() {
   if (!state.roomName) return;
 
-  const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(state.roomName)}`;
+  const encodedRoom = encodeRoomName(state.roomName);
+  const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(encodedRoom)}`;
   
   navigator.clipboard.writeText(inviteUrl)
     .then(() => {
