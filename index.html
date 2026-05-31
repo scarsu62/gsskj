@@ -51,10 +51,14 @@
           <input type="password" id="teacher-password" placeholder="請輸入密語..." required>
         </div>
         <div class="form-group">
-          <label for="teacher-room-select">選擇要巡房的房間</label>
+          <label for="teacher-room-select">選擇線上活躍的房間</label>
           <select id="teacher-room-select" disabled>
             <option value="">請先輸入正確的密語...</option>
           </select>
+        </div>
+        <div class="form-group">
+          <label for="teacher-room-input">或直接手動輸入房間名稱</label>
+          <input type="text" id="teacher-room-input" placeholder="例如：設計思考小組A" disabled>
         </div>
         <button type="submit" id="btn-join-teacher" class="btn btn-teacher" disabled>
           <i class="fa-solid fa-magnifying-glass-chart"></i> 瞬間切換巡房

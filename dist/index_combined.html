@@ -1092,10 +1092,14 @@ header {
           <input type="password" id="teacher-password" placeholder="請輸入密語..." required>
         </div>
         <div class="form-group">
-          <label for="teacher-room-select">選擇要巡房的房間</label>
+          <label for="teacher-room-select">選擇線上活躍的房間</label>
           <select id="teacher-room-select" disabled>
             <option value="">請先輸入正確的密語...</option>
           </select>
+        </div>
+        <div class="form-group">
+          <label for="teacher-room-input">或直接手動輸入房間名稱</label>
+          <input type="text" id="teacher-room-input" placeholder="例如：設計思考小組A" disabled>
         </div>
         <button type="submit" id="btn-join-teacher" class="btn btn-teacher" disabled>
           <i class="fa-solid fa-magnifying-glass-chart"></i> 瞬間切換巡房
@@ -1689,6 +1693,7 @@ const dom = {
   btnJoinStudent: document.getElementById("btn-join-student"),
   teacherPassword: document.getElementById("teacher-password"),
   teacherRoomSelect: document.getElementById("teacher-room-select"),
+  teacherRoomInput: document.getElementById("teacher-room-input"),
   btnJoinTeacher: document.getElementById("btn-join-teacher"),
 
   // Header Elements
@@ -1876,14 +1881,16 @@ function switchLobbyTab(role) {
 }
 
 function handleTeacherPasswordInput() {
-  const value = dom.teacherPassword.value;
-  if (value === "KJOnLine") {
+  const value = dom.teacherPassword.value.trim();
+  if (value.toLowerCase() === "kjonline") {
     dom.teacherRoomSelect.disabled = false;
+    dom.teacherRoomInput.disabled = false;
     dom.btnJoinTeacher.disabled = false;
     showToast("密語驗證成功，正在讀取線上活躍房間...", "success");
     window.dbService.subscribeToActiveRooms();
   } else {
     dom.teacherRoomSelect.disabled = true;
+    dom.teacherRoomInput.disabled = true;
     dom.btnJoinTeacher.disabled = true;
   }
 }
@@ -1905,15 +1912,18 @@ function handleStudentJoin() {
 }
 
 function handleTeacherJoin() {
+  const manualRoom = dom.teacherRoomInput.value.trim();
   const selectedRoom = dom.teacherRoomSelect.value;
-  if (!selectedRoom) {
-    showToast("請選擇一個房間進行巡房！", "error");
+  const roomToJoin = manualRoom || selectedRoom;
+
+  if (!roomToJoin) {
+    showToast("請選擇或手動輸入一個房間進行巡房！", "error");
     return;
   }
 
   state.userRole = "teacher";
   state.userNickname = "講師";
-  state.roomName = selectedRoom;
+  state.roomName = roomToJoin;
 
   enterApp();
 }
@@ -1967,6 +1977,8 @@ function handleLogout() {
   dom.studentName.value = "";
   dom.teacherPassword.value = "";
   dom.teacherRoomSelect.disabled = true;
+  dom.teacherRoomInput.value = "";
+  dom.teacherRoomInput.disabled = true;
   dom.btnJoinTeacher.disabled = true;
   
   dom.appScreen.classList.remove("active");

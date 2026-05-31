@@ -41,6 +41,7 @@ const dom = {
   btnJoinStudent: document.getElementById("btn-join-student"),
   teacherPassword: document.getElementById("teacher-password"),
   teacherRoomSelect: document.getElementById("teacher-room-select"),
+  teacherRoomInput: document.getElementById("teacher-room-input"),
   btnJoinTeacher: document.getElementById("btn-join-teacher"),
 
   // Header Elements
@@ -228,14 +229,16 @@ function switchLobbyTab(role) {
 }
 
 function handleTeacherPasswordInput() {
-  const value = dom.teacherPassword.value;
-  if (value === "KJOnLine") {
+  const value = dom.teacherPassword.value.trim();
+  if (value.toLowerCase() === "kjonline") {
     dom.teacherRoomSelect.disabled = false;
+    dom.teacherRoomInput.disabled = false;
     dom.btnJoinTeacher.disabled = false;
     showToast("密語驗證成功，正在讀取線上活躍房間...", "success");
     window.dbService.subscribeToActiveRooms();
   } else {
     dom.teacherRoomSelect.disabled = true;
+    dom.teacherRoomInput.disabled = true;
     dom.btnJoinTeacher.disabled = true;
   }
 }
@@ -257,15 +260,18 @@ function handleStudentJoin() {
 }
 
 function handleTeacherJoin() {
+  const manualRoom = dom.teacherRoomInput.value.trim();
   const selectedRoom = dom.teacherRoomSelect.value;
-  if (!selectedRoom) {
-    showToast("請選擇一個房間進行巡房！", "error");
+  const roomToJoin = manualRoom || selectedRoom;
+
+  if (!roomToJoin) {
+    showToast("請選擇或手動輸入一個房間進行巡房！", "error");
     return;
   }
 
   state.userRole = "teacher";
   state.userNickname = "講師";
-  state.roomName = selectedRoom;
+  state.roomName = roomToJoin;
 
   enterApp();
 }
@@ -319,6 +325,8 @@ function handleLogout() {
   dom.studentName.value = "";
   dom.teacherPassword.value = "";
   dom.teacherRoomSelect.disabled = true;
+  dom.teacherRoomInput.value = "";
+  dom.teacherRoomInput.disabled = true;
   dom.btnJoinTeacher.disabled = true;
   
   dom.appScreen.classList.remove("active");
