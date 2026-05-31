@@ -292,7 +292,7 @@ async function handleTeacherPasswordInput() {
     return;
   }
   const hash = await computeSHA256(value.toLowerCase());
-  if (hash === "d44391e4575971a27e1f7d54b172a392b49526e036e476713915155f3069b139") {
+  if (hash === "1b6b228c27431948a07b78cc8e0adc0f0a22c100c826bbf2e76547dde1cff81a") {
     const wasDisabled = dom.teacherRoomSelect.disabled;
     dom.teacherRoomSelect.disabled = false;
     dom.teacherRoomInput.disabled = false;
@@ -327,7 +327,7 @@ function handleStudentJoin() {
 async function handleTeacherJoin() {
   const value = dom.teacherPassword.value.trim();
   const hash = await computeSHA256(value.toLowerCase());
-  if (hash !== "d44391e4575971a27e1f7d54b172a392b49526e036e476713915155f3069b139") {
+  if (hash !== "1b6b228c27431948a07b78cc8e0adc0f0a22c100c826bbf2e76547dde1cff81a") {
     showToast("講師專屬安全密語不正確！", "error");
     dom.teacherPassword.focus();
     return;
