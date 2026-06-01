@@ -1137,6 +1137,9 @@ header {
         <button id="btn-share" class="btn btn-secondary" title="複製快速邀請連結">
           <i class="fa-solid fa-share-nodes"></i> 分享邀請
         </button>
+        <button id="btn-settings" class="btn btn-secondary" title="系統金鑰設定">
+          <i class="fa-solid fa-gear"></i> 設定
+        </button>
         <button id="btn-logout" class="btn btn-secondary" title="登出並返回大廳">
           <i class="fa-solid fa-right-from-bracket"></i> 登出
         </button>
@@ -1274,6 +1277,29 @@ header {
         </button>
       </div>
     </div>
+  <!-- SETTINGS MODAL -->
+  <div id="modal-settings" class="modal-overlay">
+    <div class="modal glass-panel" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-gears"></i> 系統服務金鑰設定</h3>
+        <button id="modal-settings-close" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 15px;">
+          請在此填入您的 API 金鑰。這些金鑰將安全地儲存在您當前瀏覽器本地 (localStorage)，不會被傳送或儲存至任何公開代碼庫。
+        </p>
+        <div class="form-group">
+          <label for="setting-gemini-key">Gemini API 金鑰</label>
+          <input type="password" id="setting-gemini-key" placeholder="請輸入 API 金鑰..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border); font-size: 0.85rem; background: var(--bg-card); color: var(--text-primary);">
+          <small style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 5px;">一鍵 AI 親和歸類功能所需金鑰。可至 <a href="https://aistudio.google.com/" target="_blank" style="color: var(--primary); text-decoration: underline;">Google AI Studio</a> 申請。</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-settings" class="btn btn-primary" style="width: 100%;">
+          <i class="fa-solid fa-floppy-disk"></i> 儲存設定
+        </button>
+      </div>
+    </div>
   </div>
 
 
@@ -1291,7 +1317,7 @@ header {
 window.SYSTEM_CONFIG = {
   // 1. Gemini 2.5 Flash AI 服務設定 (一鍵 AI 親和歸類用)
   // 請至 Google AI Studio (https://aistudio.google.com/) 申請 API 金鑰
-  GEMINI_API_KEY: "AIzaSyCECiQA9sKH_8ZctwB-tp2myUdIwdGeyq8",
+  GEMINI_API_KEY: "YOUR_GEMINI_API_KEY",
 
   // 2. Google OAuth 2.0 用戶端識別碼 (儲存至 Google Drive 雲端硬碟用)
   // 請至 Google Cloud Console 申請 OAuth Client ID
@@ -1321,7 +1347,8 @@ window.geminiService = {
    * @returns {Promise<Object>} Object containing grouped cards and independent cards
    */
   async classifyCards(cards) {
-    const apiKey = window.SYSTEM_CONFIG ? window.SYSTEM_CONFIG.GEMINI_API_KEY : null;
+    const apiKey = localStorage.getItem("KJ_GEMINI_API_KEY") || 
+                   (window.SYSTEM_CONFIG ? window.SYSTEM_CONFIG.GEMINI_API_KEY : null);
     const isValidKey = apiKey && apiKey !== "" && !apiKey.startsWith("YOUR_");
     
     if (!isValidKey) {
@@ -1424,6 +1451,9 @@ ${JSON.stringify(cardsFormatted, null, 2)}
         
         if (response.status === 400 && errText.includes("API key")) {
           throw new Error("API_KEY_INVALID");
+        }
+        if (response.status === 403 && errText.includes("leaked")) {
+          throw new Error("API_KEY_LEAKED");
         }
         throw new Error(`API_REQUEST_FAILED: ${response.status}`);
       }
@@ -1741,6 +1771,7 @@ const dom = {
   headerRoomSelect: document.getElementById("header-room-select"),
   userDisplayName: document.getElementById("user-display-name"),
   btnShare: document.getElementById("btn-share"),
+  btnSettings: document.getElementById("btn-settings"),
   btnLogout: document.getElementById("btn-logout"),
 
   // Sidebar Elements
@@ -1775,7 +1806,13 @@ const dom = {
   modalExportClose: document.getElementById("modal-export-close"),
   exportTextarea: document.getElementById("export-textarea"),
   btnCopyMd: document.getElementById("btn-copy-md"),
-  btnDownloadMd: document.getElementById("btn-download-md")
+  btnDownloadMd: document.getElementById("btn-download-md"),
+
+  // Settings Modal Elements
+  modalSettings: document.getElementById("modal-settings"),
+  modalSettingsClose: document.getElementById("modal-settings-close"),
+  settingGeminiKey: document.getElementById("setting-gemini-key"),
+  btnSaveSettings: document.getElementById("btn-save-settings")
 };
 
 // UI Notification Toast
@@ -1895,6 +1932,27 @@ function bindUIEvents() {
 
   // Logout
   dom.btnLogout.addEventListener("click", handleLogout);
+
+  // Settings & Settings Modal
+  dom.btnSettings.addEventListener("click", () => {
+    const currentKey = localStorage.getItem("KJ_GEMINI_API_KEY") || "";
+    dom.settingGeminiKey.value = currentKey;
+    toggleModal(dom.modalSettings, true);
+  });
+  dom.modalSettingsClose.addEventListener("click", () => {
+    toggleModal(dom.modalSettings, false);
+  });
+  dom.btnSaveSettings.addEventListener("click", () => {
+    const newKey = dom.settingGeminiKey.value.trim();
+    if (newKey) {
+      localStorage.setItem("KJ_GEMINI_API_KEY", newKey);
+      showToast("金鑰設定已儲存！", "success");
+    } else {
+      localStorage.removeItem("KJ_GEMINI_API_KEY");
+      showToast("已清除自訂金鑰，將使用系統預設金鑰！", "warning");
+    }
+    toggleModal(dom.modalSettings, false);
+  });
 
   // Add Card (Student only)
   dom.btnAddCard.addEventListener("click", handleAddCard);
@@ -2603,9 +2661,11 @@ async function handleAIGrouping() {
     console.error("AI Grouping Error:", error);
     
     if (error.message === "API_KEY_MISSING") {
-      showToast("系統未配置 Gemini API 金鑰，請請管理員配置 js/config.js 設定檔！", "error");
+      showToast("系統未配置 Gemini API 金鑰，請點擊右上角「設定」按鈕進行配置！", "error");
     } else if (error.message === "API_KEY_INVALID") {
-      showToast("Gemini API 金鑰驗證無效，請檢查 API 金鑰！", "error");
+      showToast("Gemini API 金鑰驗證無效，請點擊設定重新檢查金鑰！", "error");
+    } else if (error.message === "API_KEY_LEAKED") {
+      showToast("您的 Gemini API 金鑰已被 Google 系統判定洩漏並禁用，請點擊設定更換金鑰！", "error");
     } else {
       showToast("呼叫 Gemini AI 進行親和歸類失敗，請稍候重試！", "error");
     }

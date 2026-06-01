@@ -8,7 +8,8 @@ window.geminiService = {
    * @returns {Promise<Object>} Object containing grouped cards and independent cards
    */
   async classifyCards(cards) {
-    const apiKey = window.SYSTEM_CONFIG ? window.SYSTEM_CONFIG.GEMINI_API_KEY : null;
+    const apiKey = localStorage.getItem("KJ_GEMINI_API_KEY") || 
+                   (window.SYSTEM_CONFIG ? window.SYSTEM_CONFIG.GEMINI_API_KEY : null);
     const isValidKey = apiKey && apiKey !== "" && !apiKey.startsWith("YOUR_");
     
     if (!isValidKey) {
@@ -111,6 +112,9 @@ ${JSON.stringify(cardsFormatted, null, 2)}
         
         if (response.status === 400 && errText.includes("API key")) {
           throw new Error("API_KEY_INVALID");
+        }
+        if (response.status === 403 && errText.includes("leaked")) {
+          throw new Error("API_KEY_LEAKED");
         }
         throw new Error(`API_REQUEST_FAILED: ${response.status}`);
       }

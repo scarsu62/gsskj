@@ -5,7 +5,7 @@
 window.SYSTEM_CONFIG = {
   // 1. Gemini 2.5 Flash AI 服務設定 (一鍵 AI 親和歸類用)
   // 請至 Google AI Studio (https://aistudio.google.com/) 申請 API 金鑰
-  GEMINI_API_KEY: "AIzaSyCECiQA9sKH_8ZctwB-tp2myUdIwdGeyq8",
+  GEMINI_API_KEY: "YOUR_GEMINI_API_KEY",
 
   // 2. Google OAuth 2.0 用戶端識別碼 (儲存至 Google Drive 雲端硬碟用)
   // 請至 Google Cloud Console 申請 OAuth Client ID

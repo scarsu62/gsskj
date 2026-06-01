@@ -90,6 +90,7 @@ const dom = {
   headerRoomSelect: document.getElementById("header-room-select"),
   userDisplayName: document.getElementById("user-display-name"),
   btnShare: document.getElementById("btn-share"),
+  btnSettings: document.getElementById("btn-settings"),
   btnLogout: document.getElementById("btn-logout"),
 
   // Sidebar Elements
@@ -124,7 +125,13 @@ const dom = {
   modalExportClose: document.getElementById("modal-export-close"),
   exportTextarea: document.getElementById("export-textarea"),
   btnCopyMd: document.getElementById("btn-copy-md"),
-  btnDownloadMd: document.getElementById("btn-download-md")
+  btnDownloadMd: document.getElementById("btn-download-md"),
+
+  // Settings Modal Elements
+  modalSettings: document.getElementById("modal-settings"),
+  modalSettingsClose: document.getElementById("modal-settings-close"),
+  settingGeminiKey: document.getElementById("setting-gemini-key"),
+  btnSaveSettings: document.getElementById("btn-save-settings")
 };
 
 // UI Notification Toast
@@ -244,6 +251,27 @@ function bindUIEvents() {
 
   // Logout
   dom.btnLogout.addEventListener("click", handleLogout);
+
+  // Settings & Settings Modal
+  dom.btnSettings.addEventListener("click", () => {
+    const currentKey = localStorage.getItem("KJ_GEMINI_API_KEY") || "";
+    dom.settingGeminiKey.value = currentKey;
+    toggleModal(dom.modalSettings, true);
+  });
+  dom.modalSettingsClose.addEventListener("click", () => {
+    toggleModal(dom.modalSettings, false);
+  });
+  dom.btnSaveSettings.addEventListener("click", () => {
+    const newKey = dom.settingGeminiKey.value.trim();
+    if (newKey) {
+      localStorage.setItem("KJ_GEMINI_API_KEY", newKey);
+      showToast("金鑰設定已儲存！", "success");
+    } else {
+      localStorage.removeItem("KJ_GEMINI_API_KEY");
+      showToast("已清除自訂金鑰，將使用系統預設金鑰！", "warning");
+    }
+    toggleModal(dom.modalSettings, false);
+  });
 
   // Add Card (Student only)
   dom.btnAddCard.addEventListener("click", handleAddCard);
@@ -952,9 +980,11 @@ async function handleAIGrouping() {
     console.error("AI Grouping Error:", error);
     
     if (error.message === "API_KEY_MISSING") {
-      showToast("系統未配置 Gemini API 金鑰，請請管理員配置 js/config.js 設定檔！", "error");
+      showToast("系統未配置 Gemini API 金鑰，請點擊右上角「設定」按鈕進行配置！", "error");
     } else if (error.message === "API_KEY_INVALID") {
-      showToast("Gemini API 金鑰驗證無效，請檢查 API 金鑰！", "error");
+      showToast("Gemini API 金鑰驗證無效，請點擊設定重新檢查金鑰！", "error");
+    } else if (error.message === "API_KEY_LEAKED") {
+      showToast("您的 Gemini API 金鑰已被 Google 系統判定洩漏並禁用，請點擊設定更換金鑰！", "error");
     } else {
       showToast("呼叫 Gemini AI 進行親和歸類失敗，請稍候重試！", "error");
     }
