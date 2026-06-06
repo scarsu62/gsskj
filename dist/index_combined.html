@@ -723,6 +723,7 @@ header {
   transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s ease, border-color 0.2s ease;
   position: relative;
   overflow: hidden;
+  flex-shrink: 0; /* Prevent cards from shrinking in flex container */
 }
 
 .kj-card::before {
