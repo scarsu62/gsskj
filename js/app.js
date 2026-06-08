@@ -61,8 +61,12 @@ let state = {
   groups: [],
   activeView: "board", // "board" or "tree"
   activeRooms: [],
-  offline: true
+  offline: true,
+  rootCauses: []
 };
+
+// Tracking active root cause analysis group
+let activeRootCauseGroupId = null;
 
 // DOM Element Cache
 const dom = {
@@ -143,7 +147,14 @@ const dom = {
   batchRoomsList: document.getElementById("batch-rooms-list"),
   btnExecuteBatchExport: document.getElementById("btn-execute-batch-export"),
   btnLobbyBatchExport: document.getElementById("btn-lobby-batch-export"),
-  btnHeaderBatchExport: document.getElementById("btn-header-batch-export")
+  btnHeaderBatchExport: document.getElementById("btn-header-batch-export"),
+
+  // Root Cause Elements
+  modalRootCause: document.getElementById("modal-root-cause"),
+  modalRootCauseClose: document.getElementById("modal-root-cause-close"),
+  modalRootCauseOk: document.getElementById("modal-root-cause-ok"),
+  rootCauseGroupName: document.getElementById("root-cause-group-name"),
+  rootCauseTreeContainer: document.getElementById("root-cause-tree-container")
 };
 
 // UI Notification Toast
@@ -322,6 +333,16 @@ function bindUIEvents() {
     chks.forEach(chk => chk.checked = false);
   });
   dom.btnExecuteBatchExport.addEventListener("click", handleBatchExport);
+
+  // Root Cause Modal Listeners
+  dom.modalRootCauseClose.addEventListener("click", () => {
+    activeRootCauseGroupId = null;
+    toggleModal(dom.modalRootCause, false);
+  });
+  dom.modalRootCauseOk.addEventListener("click", () => {
+    activeRootCauseGroupId = null;
+    toggleModal(dom.modalRootCause, false);
+  });
 
   // Add Card (Student only)
   dom.btnAddCard.addEventListener("click", handleAddCard);
@@ -536,6 +557,7 @@ function onRoomStateUpdate(roomState) {
   state.currentRound = roomState.round || 0;
   state.cards = roomState.cards || [];
   state.groups = roomState.groups || [];
+  state.rootCauses = roomState.rootCauses || [];
 
   dom.displayRoundNum.textContent = `第 ${state.currentRound + 1} 輪`;
   
@@ -553,6 +575,10 @@ function onRoomStateUpdate(roomState) {
 
   updateHeaderRoomDropdown();
   renderCurrentView();
+
+  if (activeRootCauseGroupId) {
+    renderRootCauseTree(activeRootCauseGroupId);
+  }
 }
 
 function onRoomsListUpdate(roomsList) {
@@ -668,12 +694,15 @@ function renderBoardView() {
     grpColumn.className = "board-column";
     grpColumn.setAttribute("data-group-id", group.id);
     
-    const actionsHtml = state.userRole === "student" ? `
+    const actionsHtml = `
       <div class="column-actions">
-        <button class="column-btn edit-group-btn" title="修改名稱"><i class="fa-solid fa-pen"></i></button>
-        <button class="column-btn delete delete-group-btn" title="解散群組"><i class="fa-solid fa-trash-can"></i></button>
+        <button class="column-btn root-cause-btn" title="根因分析" style="color: var(--primary);"><i class="fa-solid fa-network-wired"></i></button>
+        ${state.userRole === "student" ? `
+          <button class="column-btn edit-group-btn" title="修改名稱"><i class="fa-solid fa-pen"></i></button>
+          <button class="column-btn delete delete-group-btn" title="解散群組"><i class="fa-solid fa-trash-can"></i></button>
+        ` : ''}
       </div>
-    ` : '';
+    `;
 
     grpColumn.innerHTML = `
       <div class="column-header">
@@ -686,6 +715,16 @@ function renderBoardView() {
       <div class="column-cards" id="cards-container-${group.id}"></div>
     `;
     canvas.appendChild(grpColumn);
+
+    const rcBtn = grpColumn.querySelector(".root-cause-btn");
+    if (rcBtn) {
+      rcBtn.addEventListener("click", () => {
+        activeRootCauseGroupId = group.id;
+        dom.rootCauseGroupName.textContent = group.name;
+        renderRootCauseTree(group.id);
+        toggleModal(dom.modalRootCause, true);
+      });
+    }
 
     const grpCardsContainer = grpColumn.querySelector(`#cards-container-${group.id}`);
     groupCards.forEach(card => {
@@ -1509,9 +1548,191 @@ async function handleBatchExport() {
   }
 }
 
+// -------------------------------------------------------------
+// ROOT CAUSE ANALYSIS (5 WHYS TREE)
+// -------------------------------------------------------------
+function renderRootCauseTree(groupId) {
+  const container = dom.rootCauseTreeContainer;
+  if (!container) return;
+  
+  container.innerHTML = "";
+  
+  const groupNodes = (state.rootCauses || []).filter(n => n.groupId === groupId);
+  const group = state.groups.find(g => g.id === groupId);
+  const groupName = group ? group.name : "未知群組";
+  
+  const treeDiv = document.createElement("div");
+  treeDiv.className = "rc-tree-container";
+  
+  const rootBox = document.createElement("div");
+  rootBox.className = "rc-root-box";
+  rootBox.innerHTML = `
+    <i class="fa-solid fa-circle-question" style="color: var(--primary);"></i>
+    <span>核心課題：${escapeHtml(groupName)}</span>
+  `;
+  
+  if (state.userRole === "student") {
+    const addBtn = document.createElement("button");
+    addBtn.className = "rc-node-btn";
+    addBtn.style.marginLeft = "10px";
+    addBtn.style.padding = "4px 8px";
+    addBtn.style.background = "var(--primary)";
+    addBtn.style.color = "white";
+    addBtn.style.borderRadius = "4px";
+    addBtn.innerHTML = `<i class="fa-solid fa-plus"></i> 新增主因`;
+    addBtn.addEventListener("click", () => {
+      const text = prompt("請輸入此群組的主要原因（第一層原因）：");
+      if (text && text.trim()) {
+        const newNode = {
+          id: generateUUID(),
+          groupId: groupId,
+          parentId: null,
+          text: text.trim()
+        };
+        state.rootCauses.push(newNode);
+        window.dbService.updateRoomState(state.roomName, { rootCauses: state.rootCauses });
+        renderRootCauseTree(groupId);
+      }
+    });
+    rootBox.appendChild(addBtn);
+  }
+  
+  treeDiv.appendChild(rootBox);
+  
+  function buildSubtree(parentId) {
+    const children = groupNodes.filter(n => n.parentId === parentId);
+    if (children.length === 0) return null;
+    
+    const ul = document.createElement("ul");
+    ul.className = "rc-node-list";
+    
+    children.forEach(node => {
+      const li = document.createElement("li");
+      li.className = "rc-node-item";
+      
+      const content = document.createElement("div");
+      content.className = "rc-node-content";
+      
+      const textSpan = document.createElement("span");
+      textSpan.className = "rc-node-text";
+      textSpan.textContent = node.text;
+      
+      content.appendChild(textSpan);
+      
+      if (state.userRole === "student") {
+        const actions = document.createElement("div");
+        actions.className = "rc-node-actions";
+        
+        const addBtn = document.createElement("button");
+        addBtn.className = "rc-node-btn";
+        addBtn.title = "新增下一層原因";
+        addBtn.innerHTML = `<i class="fa-solid fa-plus"></i>`;
+        addBtn.addEventListener("click", () => {
+          const text = prompt(`請輸入「${node.text}」的下一層原因：`);
+          if (text && text.trim()) {
+            const newNode = {
+              id: generateUUID(),
+              groupId: groupId,
+              parentId: node.id,
+              text: text.trim()
+            };
+            state.rootCauses.push(newNode);
+            window.dbService.updateRoomState(state.roomName, { rootCauses: state.rootCauses });
+            renderRootCauseTree(groupId);
+          }
+        });
+        
+        const editBtn = document.createElement("button");
+        editBtn.className = "rc-node-btn";
+        editBtn.title = "修改文字";
+        editBtn.innerHTML = `<i class="fa-solid fa-pen"></i>`;
+        editBtn.addEventListener("click", () => {
+          const newText = prompt("請修改原因內容：", node.text);
+          if (newText && newText.trim() && newText.trim() !== node.text) {
+            node.text = newText.trim();
+            window.dbService.updateRoomState(state.roomName, { rootCauses: state.rootCauses });
+            renderRootCauseTree(groupId);
+          }
+        });
 
+        textSpan.style.cursor = "pointer";
+        textSpan.title = "雙擊可快速修改原因";
+        textSpan.addEventListener("dblclick", () => {
+          const newText = prompt("請修改原因內容：", node.text);
+          if (newText && newText.trim() && newText.trim() !== node.text) {
+            node.text = newText.trim();
+            window.dbService.updateRoomState(state.roomName, { rootCauses: state.rootCauses });
+            renderRootCauseTree(groupId);
+          }
+        });
+        
+        const delBtn = document.createElement("button");
+        delBtn.className = "rc-node-btn delete";
+        delBtn.title = "刪除此原因及所有子原因";
+        delBtn.innerHTML = `<i class="fa-solid fa-trash-can"></i>`;
+        delBtn.addEventListener("click", () => {
+          if (confirm(`確定要刪除此原因「${node.text}」及其底下的所有子原因嗎？`)) {
+            const idsToDelete = new Set([node.id]);
+            let added;
+            do {
+              added = false;
+              state.rootCauses.forEach(n => {
+                if (n.parentId && idsToDelete.has(n.parentId) && !idsToDelete.has(n.id)) {
+                  idsToDelete.add(n.id);
+                  added = true;
+                }
+              });
+            } while (added);
+            
+            state.rootCauses = state.rootCauses.filter(n => !idsToDelete.has(n.id));
+            window.dbService.updateRoomState(state.roomName, { rootCauses: state.rootCauses });
+            renderRootCauseTree(groupId);
+          }
+        });
+        
+        actions.appendChild(addBtn);
+        actions.appendChild(editBtn);
+        actions.appendChild(delBtn);
+        content.appendChild(actions);
+      }
+      
+      li.appendChild(content);
+      
+      const childSubtree = buildSubtree(node.id);
+      if (childSubtree) {
+        li.appendChild(childSubtree);
+      }
+      
+      ul.appendChild(li);
+    });
+    
+    return ul;
+  }
+  
+  const level1Tree = buildSubtree(null);
+  if (level1Tree) {
+    treeDiv.appendChild(level1Tree);
+  } else {
+    const emptyDiv = document.createElement("div");
+    emptyDiv.style.textAlign = "center";
+    emptyDiv.style.padding = "40px 20px";
+    emptyDiv.style.color = "var(--text-muted)";
+    emptyDiv.style.fontSize = "0.9rem";
+    emptyDiv.innerHTML = `
+      <i class="fa-solid fa-network-wired" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
+      尚未新增任何根因分析節點。<br>${state.userRole === "student" ? "請點擊上方的「新增主因」按鈕開始分析主要原因！" : "此小組尚未進行根因分析。"}
+    `;
+    treeDiv.appendChild(emptyDiv);
+  }
+  
+  container.appendChild(treeDiv);
+}
 
 function resetSidebarState() {
+  activeRootCauseGroupId = null;
+  if (dom.modalRootCause) {
+    toggleModal(dom.modalRootCause, false);
+  }
   if (dom.sidebar) {
     dom.sidebar.classList.remove("collapsed");
   }

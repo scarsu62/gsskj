@@ -302,6 +302,33 @@
     </div>
   </div>
 
+  <!-- ROOT CAUSE ANALYSIS MODAL -->
+  <div id="modal-root-cause" class="modal-overlay">
+    <div class="modal glass-panel" style="max-width: 750px; width: 90%;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-network-wired"></i> 根因分析 (Root Cause Tree)</h3>
+        <button id="modal-root-cause-close" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
+        <div id="root-cause-group-info" style="margin-bottom: 15px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color);">
+          <div style="font-size: 0.85rem; color: var(--text-secondary);">核心概念群組：</div>
+          <div id="root-cause-group-name" style="font-size: 1.2rem; font-weight: 700; color: var(--primary); margin-top: 4px;">[群組名稱]</div>
+        </div>
+        <div id="root-cause-tree-container">
+          <!-- Dynamically populated tree -->
+        </div>
+      </div>
+      <div class="modal-footer" style="background: #f8fafc; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.75rem; color: var(--text-muted);">
+          <i class="fa-solid fa-circle-info"></i> 點擊 + 新增下一層原因，雙擊文字或點擊修改，🗑️ 刪除該原因。
+        </span>
+        <button id="modal-root-cause-ok" class="btn btn-primary">
+          完成
+        </button>
+      </div>
+    </div>
+  </div>
+
 
 
   <!-- Firebase Compat libraries loaded via CDN -->
