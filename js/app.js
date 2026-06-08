@@ -1762,6 +1762,11 @@ function renderRootCauseTree(groupId) {
     emptyDiv.style.fontSize = "0.9rem";
     emptyDiv.innerHTML = `
       <i class="fa-solid fa-network-wired" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
+      尚未新增任何根因分析節點。<br>${state.userRole === "student" ? "請點擊上方的「新增主因」按鈕開始分析主要原因！" : "此小組尚未進行根因分析。"}
+    `;
+    treeDiv.appendChild(emptyDiv);
+  }
+  
   container.appendChild(treeDiv);
 }
 
