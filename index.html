@@ -63,9 +63,15 @@
         <button type="submit" id="btn-join-teacher" class="btn btn-teacher" disabled>
           <i class="fa-solid fa-magnifying-glass-chart"></i> 瞬間切換巡房
         </button>
-        <button type="button" id="btn-lobby-batch-export" class="btn btn-secondary" style="margin-top: 10px; width: 100%; display: none;" disabled>
-          <i class="fa-solid fa-boxes-packing"></i> 批次成果匯出
-        </button>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button type="button" id="btn-lobby-batch-export" class="btn btn-secondary" style="flex: 1; display: none;" disabled>
+            <i class="fa-solid fa-boxes-packing"></i> 批次成果匯出
+          </button>
+          <button type="button" id="btn-lobby-batch-import" class="btn btn-secondary" style="flex: 1; display: none; border-color: var(--teacher-primary); color: var(--teacher-primary);" disabled>
+            <i class="fa-solid fa-file-import"></i> 批次成果匯入
+          </button>
+        </div>
+        <input type="file" id="lobby-batch-import-input" accept=".md,.txt" style="display: none;">
       </form>
     </div>
   </div>
@@ -157,11 +163,15 @@
             </button>
           </div>
 
-          <!-- Teacher Action (Reset Room) -->
+          <!-- Teacher Action (Reset Room / Import) -->
           <div id="teacher-actions" style="display: none; flex-direction: column; gap: 10px;">
             <div style="font-size: 0.8rem; color: var(--teacher-primary); font-weight: 600; padding: 4px; background: var(--teacher-light); border-radius: var(--radius-sm); border: 1px solid rgba(217, 119, 6, 0.2);">
-              <i class="fa-solid fa-circle-info"></i> 您擁有重置此房間資料的管理權限。
+              <i class="fa-solid fa-circle-info"></i> 您擁有管理此房間資料的權限。
             </div>
+            <button id="btn-import-md" class="btn btn-secondary" style="border-color: var(--teacher-primary); color: var(--teacher-primary);">
+              <i class="fa-solid fa-file-import"></i> 匯入成果 Markdown
+            </button>
+            <input type="file" id="import-md-input" accept=".md,.txt" style="display: none;">
             <button id="btn-reset-room" class="btn btn-danger">
               <i class="fa-solid fa-trash-arrow-up"></i> 重置房間 (清空所有資料)
             </button>

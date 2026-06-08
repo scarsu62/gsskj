@@ -1434,9 +1434,15 @@ header {
         <button type="submit" id="btn-join-teacher" class="btn btn-teacher" disabled>
           <i class="fa-solid fa-magnifying-glass-chart"></i> 瞬間切換巡房
         </button>
-        <button type="button" id="btn-lobby-batch-export" class="btn btn-secondary" style="margin-top: 10px; width: 100%; display: none;" disabled>
-          <i class="fa-solid fa-boxes-packing"></i> 批次成果匯出
-        </button>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button type="button" id="btn-lobby-batch-export" class="btn btn-secondary" style="flex: 1; display: none;" disabled>
+            <i class="fa-solid fa-boxes-packing"></i> 批次成果匯出
+          </button>
+          <button type="button" id="btn-lobby-batch-import" class="btn btn-secondary" style="flex: 1; display: none; border-color: var(--teacher-primary); color: var(--teacher-primary);" disabled>
+            <i class="fa-solid fa-file-import"></i> 批次成果匯入
+          </button>
+        </div>
+        <input type="file" id="lobby-batch-import-input" accept=".md,.txt" style="display: none;">
       </form>
     </div>
   </div>
@@ -1528,11 +1534,15 @@ header {
             </button>
           </div>
 
-          <!-- Teacher Action (Reset Room) -->
+          <!-- Teacher Action (Reset Room / Import) -->
           <div id="teacher-actions" style="display: none; flex-direction: column; gap: 10px;">
             <div style="font-size: 0.8rem; color: var(--teacher-primary); font-weight: 600; padding: 4px; background: var(--teacher-light); border-radius: var(--radius-sm); border: 1px solid rgba(217, 119, 6, 0.2);">
-              <i class="fa-solid fa-circle-info"></i> 您擁有重置此房間資料的管理權限。
+              <i class="fa-solid fa-circle-info"></i> 您擁有管理此房間資料的權限。
             </div>
+            <button id="btn-import-md" class="btn btn-secondary" style="border-color: var(--teacher-primary); color: var(--teacher-primary);">
+              <i class="fa-solid fa-file-import"></i> 匯入成果 Markdown
+            </button>
+            <input type="file" id="import-md-input" accept=".md,.txt" style="display: none;">
             <button id="btn-reset-room" class="btn btn-danger">
               <i class="fa-solid fa-trash-arrow-up"></i> 重置房間 (清空所有資料)
             </button>
@@ -2257,6 +2267,10 @@ const dom = {
   batchRoomsList: document.getElementById("batch-rooms-list"),
   btnExecuteBatchExport: document.getElementById("btn-execute-batch-export"),
   btnLobbyBatchExport: document.getElementById("btn-lobby-batch-export"),
+  btnLobbyBatchImport: document.getElementById("btn-lobby-batch-import"),
+  lobbyBatchImportInput: document.getElementById("lobby-batch-import-input"),
+  btnImportMd: document.getElementById("btn-import-md"),
+  importMdInput: document.getElementById("import-md-input"),
   btnHeaderBatchExport: document.getElementById("btn-header-batch-export"),
 
   // Root Cause Elements
@@ -2451,6 +2465,24 @@ function bindUIEvents() {
   });
   dom.btnExecuteBatchExport.addEventListener("click", handleBatchExport);
 
+  // Markdown Import Event Listeners (Teacher only)
+  dom.btnLobbyBatchImport.addEventListener("click", () => {
+    dom.lobbyBatchImportInput.click();
+  });
+  dom.lobbyBatchImportInput.addEventListener("change", (e) => {
+    if (e.target.files.length > 0) {
+      handleImportFile(e.target.files[0], true);
+    }
+  });
+  dom.btnImportMd.addEventListener("click", () => {
+    dom.importMdInput.click();
+  });
+  dom.importMdInput.addEventListener("change", (e) => {
+    if (e.target.files.length > 0) {
+      handleImportFile(e.target.files[0], false);
+    }
+  });
+
   // Root Cause Modal Listeners
   dom.modalRootCauseClose.addEventListener("click", () => {
     activeRootCauseGroupId = null;
@@ -2517,6 +2549,8 @@ async function handleTeacherPasswordInput() {
     dom.btnJoinTeacher.disabled = true;
     dom.btnLobbyBatchExport.style.display = "none";
     dom.btnLobbyBatchExport.disabled = true;
+    dom.btnLobbyBatchImport.style.display = "none";
+    dom.btnLobbyBatchImport.disabled = true;
     return;
   }
   const hash = await computeSHA256(value.toLowerCase());
@@ -2527,6 +2561,8 @@ async function handleTeacherPasswordInput() {
     dom.btnJoinTeacher.disabled = false;
     dom.btnLobbyBatchExport.style.display = "block";
     dom.btnLobbyBatchExport.disabled = false;
+    dom.btnLobbyBatchImport.style.display = "block";
+    dom.btnLobbyBatchImport.disabled = false;
     if (wasDisabled) {
       showToast("密語驗證成功，正在讀取線上活躍房間...", "success");
       window.dbService.subscribeToActiveRooms();
@@ -2537,6 +2573,8 @@ async function handleTeacherPasswordInput() {
     dom.btnJoinTeacher.disabled = true;
     dom.btnLobbyBatchExport.style.display = "none";
     dom.btnLobbyBatchExport.disabled = true;
+    dom.btnLobbyBatchImport.style.display = "none";
+    dom.btnLobbyBatchImport.disabled = true;
   }
 }
 
@@ -2645,6 +2683,8 @@ function handleLogout() {
   dom.btnJoinTeacher.disabled = true;
   dom.btnLobbyBatchExport.style.display = "none";
   dom.btnLobbyBatchExport.disabled = true;
+  dom.btnLobbyBatchImport.style.display = "none";
+  dom.btnLobbyBatchImport.disabled = true;
   dom.btnHeaderBatchExport.style.display = "none";
   
   dom.appScreen.classList.remove("active");
@@ -3423,6 +3463,262 @@ function handleResetRoom() {
       showToast("此房間的數據已完全重置", "success");
     });
   }
+}
+
+// -------------------------------------------------------------
+// BATCH / SINGLE MARKDOWN IMPORT
+// -------------------------------------------------------------
+function parseSingleRoomMarkdown(roomName, mdText) {
+  const lines = mdText.split("\n");
+  const rootNodes = [];
+  const stack = [];
+  let maxRound = 0;
+  
+  for (let line of lines) {
+    line = line.replace(/\r/g, "");
+    
+    // Pattern for groups
+    const groupMatch = line.match(/^(\s*)-\s+###\s+🗂️\s+(.*?)\s+\(第\s+(\d+)\s+輪群組分類\)/);
+    // Pattern for cards
+    const cardMatch = line.match(/^(\s*)-\s+📝\s+(.*?)\s+\(由\s+\[(.*?)\]\s+提出\)/);
+    
+    let node = null;
+    let indent = 0;
+    
+    if (groupMatch) {
+      indent = groupMatch[1].length;
+      const name = groupMatch[2].trim();
+      const roundNum = parseInt(groupMatch[3], 10);
+      node = {
+        type: "group",
+        name: name,
+        roundNum: roundNum,
+        indent: indent,
+        children: []
+      };
+      if (roundNum - 1 > maxRound) {
+        maxRound = roundNum - 1;
+      }
+    } else if (cardMatch) {
+      indent = cardMatch[1].length;
+      const text = cardMatch[2].trim();
+      const author = cardMatch[3].trim();
+      node = {
+        type: "card",
+        text: text,
+        author: author,
+        indent: indent
+      };
+    }
+    
+    if (node) {
+      while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
+        stack.pop();
+      }
+      
+      if (stack.length > 0) {
+        stack[stack.length - 1].node.children.push(node);
+      } else {
+        rootNodes.push(node);
+      }
+      
+      stack.push({ indent: indent, node: node });
+    }
+  }
+  
+  const cardsList = [];
+  const groupsList = [];
+  
+  function reconstructNode(node, targetRound, parentGroupId = null) {
+    if (node.type === "card") {
+      let prevCardId = null;
+      for (let r = 0; r <= targetRound; r++) {
+        const cardId = generateUUID();
+        cardsList.push({
+          id: cardId,
+          text: node.text,
+          author: node.author,
+          round: r,
+          groupId: (r === targetRound) ? parentGroupId : null,
+          sourceGroupId: null,
+          sourceCardId: prevCardId
+        });
+        prevCardId = cardId;
+      }
+    } else if (node.type === "group") {
+      const G = node.roundNum - 1;
+      const groupId = generateUUID();
+      groupsList.push({
+        id: groupId,
+        name: node.name,
+        round: G
+      });
+      
+      node.children.forEach(child => {
+        reconstructNode(child, G, groupId);
+      });
+      
+      let prevCardId = null;
+      for (let r = G + 1; r <= targetRound; r++) {
+        const cardId = generateUUID();
+        cardsList.push({
+          id: cardId,
+          text: node.name,
+          author: "上一輪群組",
+          round: r,
+          groupId: (r === targetRound) ? parentGroupId : null,
+          sourceGroupId: (r === G + 1) ? groupId : null,
+          sourceCardId: (r > G + 1) ? prevCardId : null
+        });
+        prevCardId = cardId;
+      }
+    }
+  }
+  
+  rootNodes.forEach(node => {
+    reconstructNode(node, maxRound, null);
+  });
+  
+  return {
+    round: maxRound,
+    cards: cardsList,
+    groups: groupsList
+  };
+}
+
+async function handleImportFile(file, isLobbyImport) {
+  if (state.userRole !== "teacher" && !isLobbyImport) {
+    if (state.userRole !== "teacher") return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const text = e.target.result;
+    
+    // Check if it's a batch report or single report
+    const isBatchReport = text.includes("========================================================================");
+    
+    if (isBatchReport) {
+      const sections = text.split("========================================================================");
+      const roomsToImport = [];
+      
+      for (let section of sections) {
+        const lines = section.split("\n");
+        let roomName = null;
+        for (let line of lines) {
+          const roomMatch = line.match(/^#\s*(?:小組)?房間：(.*?)$/);
+          if (roomMatch) {
+            roomName = roomMatch[1].trim();
+            break;
+          }
+        }
+        
+        if (roomName) {
+          const isEmpty = section.includes("（該房間目前無卡片資料或未初始化）");
+          roomsToImport.push({
+            name: roomName,
+            content: section,
+            isEmpty: isEmpty
+          });
+        }
+      }
+      
+      if (roomsToImport.length === 0) {
+        showToast("未能在此檔案中識別出任何小組房間！", "error");
+        return;
+      }
+      
+      const confirmMsg = `偵測到共 ${roomsToImport.length} 個小組房間：\n` + 
+        roomsToImport.map(r => ` - ${r.name}`).join("\n") + 
+        `\n\n確定要將這些小組的成果匯入嗎？這將會覆蓋這些小組原有的所有資料！`;
+        
+      if (confirm(confirmMsg)) {
+        showToast("正在批次寫入資料庫...", "info");
+        try {
+          for (let room of roomsToImport) {
+            if (room.isEmpty) {
+              await window.dbService.resetRoom(room.name);
+            } else {
+              const stateData = parseSingleRoomMarkdown(room.name, room.content);
+              await window.dbService.updateRoomState(room.name, {
+                roomName: room.name,
+                round: stateData.round,
+                cards: stateData.cards,
+                groups: stateData.groups,
+                rootCauses: [],
+                countermeasures: []
+              });
+            }
+          }
+          showToast(`已成功批次匯入 ${roomsToImport.length} 個房間的成果！`, "success");
+          
+          // Clear file inputs
+          dom.lobbyBatchImportInput.value = "";
+          dom.importMdInput.value = "";
+        } catch (err) {
+          console.error("Batch import failed:", err);
+          showToast("批次匯入過程中發生錯誤，請重試！", "error");
+        }
+      } else {
+        dom.lobbyBatchImportInput.value = "";
+        dom.importMdInput.value = "";
+      }
+    } else {
+      // Single room report
+      let roomName = null;
+      const lines = text.split("\n");
+      for (let line of lines) {
+        const roomMatch = line.match(/^#\s*KJ\s+親和圖收斂報告\s+—\s+房間：(.*?)$/);
+        if (roomMatch) {
+          roomName = roomMatch[1].trim();
+          break;
+        }
+      }
+      
+      // If we are importing inside a room, use that room name
+      if (!isLobbyImport && state.roomName) {
+        roomName = state.roomName;
+      }
+      
+      if (!roomName) {
+        const inputName = prompt("此檔案未包含房間名稱資訊，請輸入要匯入的房間名稱：");
+        if (inputName && inputName.trim()) {
+          roomName = inputName.trim();
+        } else {
+          showToast("取消匯入", "warning");
+          dom.lobbyBatchImportInput.value = "";
+          dom.importMdInput.value = "";
+          return;
+        }
+      }
+      
+      if (confirm(`確定要將此成果匯入房間「${roomName}」嗎？這將會覆蓋該房間現有的所有資料！`)) {
+        try {
+          const stateData = parseSingleRoomMarkdown(roomName, text);
+          await window.dbService.updateRoomState(roomName, {
+            roomName: roomName,
+            round: stateData.round,
+            cards: stateData.cards,
+            groups: stateData.groups,
+            rootCauses: [],
+            countermeasures: []
+          });
+          showToast(`已成功匯入房間「${roomName}」的成果！`, "success");
+          
+          // Clear file inputs
+          dom.lobbyBatchImportInput.value = "";
+          dom.importMdInput.value = "";
+        } catch (err) {
+          console.error("Single import failed:", err);
+          showToast("匯入失敗，請檢查檔案格式！", "error");
+        }
+      } else {
+        dom.lobbyBatchImportInput.value = "";
+        dom.importMdInput.value = "";
+      }
+    }
+  };
+  reader.readAsText(file);
 }
 
 // -------------------------------------------------------------
