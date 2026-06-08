@@ -200,6 +200,17 @@
             <div class="toolbar-title">
               <i class="fa-solid fa-door-open"></i> 房間名稱：<span id="display-room-name">未加入</span>
             </div>
+            <div class="member-presence-container" id="member-presence-container" style="display: none;">
+              <button id="btn-member-list" class="btn-member-list" title="查看線上成員">
+                <i class="fa-solid fa-users"></i> 線上成員 (<span id="member-count">0</span>) <i class="fa-solid fa-caret-down"></i>
+              </button>
+              <div id="member-dropdown" class="member-dropdown-menu">
+                <div class="member-dropdown-header">在線成員清單</div>
+                <ul id="member-ul">
+                  <!-- Dynamically populated list items -->
+                </ul>
+              </div>
+            </div>
           </div>
           
           <!-- View Toggle Tabs -->

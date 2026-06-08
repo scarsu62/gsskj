@@ -1341,6 +1341,131 @@ header {
   color: var(--danger);
 }
 
+/* Member Presence Dropdown */
+.member-presence-container {
+  position: relative;
+  display: inline-block;
+  margin-left: 15px;
+}
+
+.btn-member-list {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-member-list:hover {
+  background: #f1f5f9;
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.member-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 200px;
+  z-index: 1000;
+  padding: 8px 0;
+  max-height: 250px;
+  overflow-y: auto;
+  animation: dropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.member-dropdown-menu.active {
+  display: block;
+}
+
+.member-dropdown-header {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+
+#member-ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.member-item {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition);
+}
+
+.member-item:hover {
+  background: #f8fafc;
+}
+
+.member-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--success);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.member-item.teacher .member-status-dot {
+  background-color: var(--teacher-primary);
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.2);
+}
+
+.member-item-name {
+  font-weight: 500;
+}
+
+.member-item-role {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: auto;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.member-item.teacher .member-item-role {
+  background: var(--teacher-light);
+  color: var(--teacher-primary);
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Responsive Styles */
 @media (max-width: 768px) {
   .workspace {

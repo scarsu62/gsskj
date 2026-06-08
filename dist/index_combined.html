@@ -1352,6 +1352,131 @@ header {
   color: var(--danger);
 }
 
+/* Member Presence Dropdown */
+.member-presence-container {
+  position: relative;
+  display: inline-block;
+  margin-left: 15px;
+}
+
+.btn-member-list {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-member-list:hover {
+  background: #f1f5f9;
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.member-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 200px;
+  z-index: 1000;
+  padding: 8px 0;
+  max-height: 250px;
+  overflow-y: auto;
+  animation: dropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.member-dropdown-menu.active {
+  display: block;
+}
+
+.member-dropdown-header {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+
+#member-ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.member-item {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition);
+}
+
+.member-item:hover {
+  background: #f8fafc;
+}
+
+.member-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--success);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.member-item.teacher .member-status-dot {
+  background-color: var(--teacher-primary);
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.2);
+}
+
+.member-item-name {
+  font-weight: 500;
+}
+
+.member-item-role {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: auto;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.member-item.teacher .member-item-role {
+  background: var(--teacher-light);
+  color: var(--teacher-primary);
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Responsive Styles */
 @media (max-width: 768px) {
   .workspace {
@@ -1570,6 +1695,17 @@ header {
             </button>
             <div class="toolbar-title">
               <i class="fa-solid fa-door-open"></i> 房間名稱：<span id="display-room-name">未加入</span>
+            </div>
+            <div class="member-presence-container" id="member-presence-container" style="display: none;">
+              <button id="btn-member-list" class="btn-member-list" title="查看線上成員">
+                <i class="fa-solid fa-users"></i> 線上成員 (<span id="member-count">0</span>) <i class="fa-solid fa-caret-down"></i>
+              </button>
+              <div id="member-dropdown" class="member-dropdown-menu">
+                <div class="member-dropdown-header">在線成員清單</div>
+                <ul id="member-ul">
+                  <!-- Dynamically populated list items -->
+                </ul>
+              </div>
             </div>
           </div>
           
@@ -2101,6 +2237,40 @@ window.dbService = {
     }
   },
 
+  /**
+   * Updates user presence timestamp in Firestore
+   */
+  async updateMemberPresence(roomName, nickname) {
+    if (!isOfflineMode && typeof firebase !== 'undefined' && firebase.apps.length) {
+      try {
+        const db = firebase.firestore();
+        const docRef = db.collection("rooms").doc(roomName);
+        await docRef.update({
+          [`members.${nickname}`]: Date.now()
+        });
+      } catch (error) {
+        console.error("Firestore presence update failed:", error);
+      }
+    }
+  },
+
+  /**
+   * Removes user presence from Firestore
+   */
+  async removeMemberPresence(roomName, nickname) {
+    if (!isOfflineMode && typeof firebase !== 'undefined' && firebase.apps.length) {
+      try {
+        const db = firebase.firestore();
+        const docRef = db.collection("rooms").doc(roomName);
+        await docRef.update({
+          [`members.${nickname}`]: firebase.firestore.FieldValue.delete()
+        });
+      } catch (error) {
+        console.error("Firestore presence delete failed:", error);
+      }
+    }
+  },
+
   getDefaultRoomState(roomName) {
     return {
       roomName: roomName,
@@ -2109,6 +2279,7 @@ window.dbService = {
       groups: [],
       rootCauses: [],
       countermeasures: [],
+      members: {},
       lastActive: Date.now()
     };
   }
@@ -2181,7 +2352,8 @@ let state = {
   activeRooms: [],
   offline: true,
   rootCauses: [],
-  countermeasures: []
+  countermeasures: [],
+  presenceIntervalId: null
 };
 
 // Tracking active root cause analysis group
@@ -2236,6 +2408,11 @@ const dom = {
 
   // Workspace View Canvas Elements
   displayRoomName: document.getElementById("display-room-name"),
+  memberPresenceContainer: document.getElementById("member-presence-container"),
+  btnMemberList: document.getElementById("btn-member-list"),
+  memberCount: document.getElementById("member-count"),
+  memberDropdown: document.getElementById("member-dropdown"),
+  memberUl: document.getElementById("member-ul"),
   viewTabBoard: document.getElementById("view-tab-board"),
   viewTabTree: document.getElementById("view-tab-tree"),
   panelBoard: document.getElementById("panel-board"),
@@ -2522,6 +2699,26 @@ function bindUIEvents() {
   // View Panel Tabs
   dom.viewTabBoard.addEventListener("click", () => switchView("board"));
   dom.viewTabTree.addEventListener("click", () => switchView("tree"));
+
+  // Member Presence list dropdown toggle
+  dom.btnMemberList.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dom.memberDropdown.classList.toggle("active");
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener("click", (e) => {
+    if (dom.memberPresenceContainer && !dom.memberPresenceContainer.contains(e.target)) {
+      dom.memberDropdown.classList.remove("active");
+    }
+  });
+
+  // Clean presence on browser close/unload
+  window.addEventListener("beforeunload", () => {
+    if (state.roomName && state.userNickname && !window.dbService.isOffline()) {
+      window.dbService.removeMemberPresence(state.roomName, state.userNickname);
+    }
+  });
 }
 
 // -------------------------------------------------------------
@@ -2643,6 +2840,24 @@ function enterApp() {
   dom.lobbyScreen.style.display = "none";
   dom.appScreen.classList.add("active");
 
+  // Show presence container
+  dom.memberPresenceContainer.style.display = "inline-block";
+  dom.memberDropdown.classList.remove("active");
+
+  // Setup presence heartbeat
+  if (state.presenceIntervalId) {
+    clearInterval(state.presenceIntervalId);
+    state.presenceIntervalId = null;
+  }
+  if (state.roomName && state.userNickname && !window.dbService.isOffline()) {
+    window.dbService.updateMemberPresence(state.roomName, state.userNickname);
+  }
+  state.presenceIntervalId = setInterval(() => {
+    if (state.roomName && state.userNickname && !window.dbService.isOffline()) {
+      window.dbService.updateMemberPresence(state.roomName, state.userNickname);
+    }
+  }, 30000);
+
   const encodedRoom = encodeRoomName(state.roomName);
   const newUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(encodedRoom)}`;
   window.history.replaceState({ path: newUrl }, "", newUrl);
@@ -2652,10 +2867,33 @@ function enterApp() {
   showToast(`已登入房間：${state.roomName}`, "success");
 }
 
-function switchRoom(newRoomName) {
+async function switchRoom(newRoomName) {
+  // Clean up presence in old room
+  if (state.roomName && state.userNickname && !window.dbService.isOffline()) {
+    await window.dbService.removeMemberPresence(state.roomName, state.userNickname);
+  }
+
   state.roomName = newRoomName;
   dom.displayRoomName.textContent = newRoomName;
   resetSidebarState();
+  
+  // Hide dropdown
+  dom.memberDropdown.classList.remove("active");
+
+  // Setup presence heartbeat for new room
+  if (state.presenceIntervalId) {
+    clearInterval(state.presenceIntervalId);
+    state.presenceIntervalId = null;
+  }
+  if (state.roomName && state.userNickname && !window.dbService.isOffline()) {
+    window.dbService.updateMemberPresence(state.roomName, state.userNickname);
+  }
+  state.presenceIntervalId = setInterval(() => {
+    if (state.roomName && state.userNickname && !window.dbService.isOffline()) {
+      window.dbService.updateMemberPresence(state.roomName, state.userNickname);
+    }
+  }, 30000);
+
   window.dbService.subscribeToRoom(newRoomName);
   
   const encodedRoom = encodeRoomName(newRoomName);
@@ -2665,7 +2903,26 @@ function switchRoom(newRoomName) {
   showToast(`已切換至房間：${newRoomName}`, "success");
 }
 
-function handleLogout() {
+async function handleLogout() {
+  // Clean up presence in old room
+  if (state.roomName && state.userNickname && !window.dbService.isOffline()) {
+    try {
+      await window.dbService.removeMemberPresence(state.roomName, state.userNickname);
+    } catch (e) {
+      console.error("Presence cleanup on logout failed:", e);
+    }
+  }
+
+  // Clear presence heartbeat
+  if (state.presenceIntervalId) {
+    clearInterval(state.presenceIntervalId);
+    state.presenceIntervalId = null;
+  }
+
+  // Hide presence UI
+  dom.memberPresenceContainer.style.display = "none";
+  dom.memberDropdown.classList.remove("active");
+
   window.dbService.unsubscribeFromFirebase();
   resetSidebarState();
   
@@ -2744,12 +3001,68 @@ function onRoomStateUpdate(roomState) {
   updateHeaderRoomDropdown();
   renderCurrentView();
 
+  // Render online presence list
+  renderMemberPresence(roomState.members);
+
   if (activeRootCauseGroupId) {
     renderRootCauseTree(activeRootCauseGroupId);
   }
   if (activeCountermeasuresGroupId) {
     renderCountermeasuresTree(activeCountermeasuresGroupId);
   }
+}
+
+function renderMemberPresence(members) {
+  if (!members) members = {};
+  const now = Date.now();
+  const activeMembers = Object.keys(members).filter(name => {
+    const timestamp = members[name];
+    return (now - timestamp) < 90000;
+  });
+
+  // Sort names: "講師" first, then alphabetically
+  activeMembers.sort((a, b) => {
+    if (a === "講師") return -1;
+    if (b === "講師") return 1;
+    return a.localeCompare(b, "zh-TW");
+  });
+
+  dom.memberCount.textContent = activeMembers.length;
+  dom.memberUl.innerHTML = "";
+
+  if (activeMembers.length === 0) {
+    const li = document.createElement("li");
+    li.className = "member-item";
+    li.style.color = "var(--text-muted)";
+    li.style.justifyContent = "center";
+    li.textContent = "目前無人在線";
+    dom.memberUl.appendChild(li);
+    return;
+  }
+
+  activeMembers.forEach(name => {
+    const li = document.createElement("li");
+    li.className = "member-item";
+    if (name === "講師") {
+      li.classList.add("teacher");
+    }
+
+    const dot = document.createElement("span");
+    dot.className = "member-status-dot";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "member-item-name";
+    nameSpan.textContent = name;
+
+    const roleSpan = document.createElement("span");
+    roleSpan.className = "member-item-role";
+    roleSpan.textContent = name === "講師" ? "講師" : "學員";
+
+    li.appendChild(dot);
+    li.appendChild(nameSpan);
+    li.appendChild(roleSpan);
+    dom.memberUl.appendChild(li);
+  });
 }
 
 function onRoomsListUpdate(roomsList) {

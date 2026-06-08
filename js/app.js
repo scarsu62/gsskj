@@ -63,7 +63,8 @@ let state = {
   activeRooms: [],
   offline: true,
   rootCauses: [],
-  countermeasures: []
+  countermeasures: [],
+  presenceIntervalId: null
 };
 
 // Tracking active root cause analysis group
@@ -118,6 +119,11 @@ const dom = {
 
   // Workspace View Canvas Elements
   displayRoomName: document.getElementById("display-room-name"),
+  memberPresenceContainer: document.getElementById("member-presence-container"),
+  btnMemberList: document.getElementById("btn-member-list"),
+  memberCount: document.getElementById("member-count"),
+  memberDropdown: document.getElementById("member-dropdown"),
+  memberUl: document.getElementById("member-ul"),
   viewTabBoard: document.getElementById("view-tab-board"),
   viewTabTree: document.getElementById("view-tab-tree"),
   panelBoard: document.getElementById("panel-board"),
@@ -404,6 +410,26 @@ function bindUIEvents() {
   // View Panel Tabs
   dom.viewTabBoard.addEventListener("click", () => switchView("board"));
   dom.viewTabTree.addEventListener("click", () => switchView("tree"));
+
+  // Member Presence list dropdown toggle
+  dom.btnMemberList.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dom.memberDropdown.classList.toggle("active");
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener("click", (e) => {
+    if (dom.memberPresenceContainer && !dom.memberPresenceContainer.contains(e.target)) {
+      dom.memberDropdown.classList.remove("active");
+    }
+  });
+
+  // Clean presence on browser close/unload
+  window.addEventListener("beforeunload", () => {
+    if (state.roomName && state.userNickname && !window.dbService.isOffline()) {
+      window.dbService.removeMemberPresence(state.roomName, state.userNickname);
+    }
+  });
 }
 
 // -------------------------------------------------------------
@@ -525,6 +551,24 @@ function enterApp() {
   dom.lobbyScreen.style.display = "none";
   dom.appScreen.classList.add("active");
 
+  // Show presence container
+  dom.memberPresenceContainer.style.display = "inline-block";
+  dom.memberDropdown.classList.remove("active");
+
+  // Setup presence heartbeat
+  if (state.presenceIntervalId) {
+    clearInterval(state.presenceIntervalId);
+    state.presenceIntervalId = null;
+  }
+  if (state.roomName && state.userNickname && !window.dbService.isOffline()) {
+    window.dbService.updateMemberPresence(state.roomName, state.userNickname);
+  }
+  state.presenceIntervalId = setInterval(() => {
+    if (state.roomName && state.userNickname && !window.dbService.isOffline()) {
+      window.dbService.updateMemberPresence(state.roomName, state.userNickname);
+    }
+  }, 30000);
+
   const encodedRoom = encodeRoomName(state.roomName);
   const newUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(encodedRoom)}`;
   window.history.replaceState({ path: newUrl }, "", newUrl);
@@ -534,10 +578,33 @@ function enterApp() {
   showToast(`已登入房間：${state.roomName}`, "success");
 }
 
-function switchRoom(newRoomName) {
+async function switchRoom(newRoomName) {
+  // Clean up presence in old room
+  if (state.roomName && state.userNickname && !window.dbService.isOffline()) {
+    await window.dbService.removeMemberPresence(state.roomName, state.userNickname);
+  }
+
   state.roomName = newRoomName;
   dom.displayRoomName.textContent = newRoomName;
   resetSidebarState();
+  
+  // Hide dropdown
+  dom.memberDropdown.classList.remove("active");
+
+  // Setup presence heartbeat for new room
+  if (state.presenceIntervalId) {
+    clearInterval(state.presenceIntervalId);
+    state.presenceIntervalId = null;
+  }
+  if (state.roomName && state.userNickname && !window.dbService.isOffline()) {
+    window.dbService.updateMemberPresence(state.roomName, state.userNickname);
+  }
+  state.presenceIntervalId = setInterval(() => {
+    if (state.roomName && state.userNickname && !window.dbService.isOffline()) {
+      window.dbService.updateMemberPresence(state.roomName, state.userNickname);
+    }
+  }, 30000);
+
   window.dbService.subscribeToRoom(newRoomName);
   
   const encodedRoom = encodeRoomName(newRoomName);
@@ -547,7 +614,26 @@ function switchRoom(newRoomName) {
   showToast(`已切換至房間：${newRoomName}`, "success");
 }
 
-function handleLogout() {
+async function handleLogout() {
+  // Clean up presence in old room
+  if (state.roomName && state.userNickname && !window.dbService.isOffline()) {
+    try {
+      await window.dbService.removeMemberPresence(state.roomName, state.userNickname);
+    } catch (e) {
+      console.error("Presence cleanup on logout failed:", e);
+    }
+  }
+
+  // Clear presence heartbeat
+  if (state.presenceIntervalId) {
+    clearInterval(state.presenceIntervalId);
+    state.presenceIntervalId = null;
+  }
+
+  // Hide presence UI
+  dom.memberPresenceContainer.style.display = "none";
+  dom.memberDropdown.classList.remove("active");
+
   window.dbService.unsubscribeFromFirebase();
   resetSidebarState();
   
@@ -626,12 +712,68 @@ function onRoomStateUpdate(roomState) {
   updateHeaderRoomDropdown();
   renderCurrentView();
 
+  // Render online presence list
+  renderMemberPresence(roomState.members);
+
   if (activeRootCauseGroupId) {
     renderRootCauseTree(activeRootCauseGroupId);
   }
   if (activeCountermeasuresGroupId) {
     renderCountermeasuresTree(activeCountermeasuresGroupId);
   }
+}
+
+function renderMemberPresence(members) {
+  if (!members) members = {};
+  const now = Date.now();
+  const activeMembers = Object.keys(members).filter(name => {
+    const timestamp = members[name];
+    return (now - timestamp) < 90000;
+  });
+
+  // Sort names: "講師" first, then alphabetically
+  activeMembers.sort((a, b) => {
+    if (a === "講師") return -1;
+    if (b === "講師") return 1;
+    return a.localeCompare(b, "zh-TW");
+  });
+
+  dom.memberCount.textContent = activeMembers.length;
+  dom.memberUl.innerHTML = "";
+
+  if (activeMembers.length === 0) {
+    const li = document.createElement("li");
+    li.className = "member-item";
+    li.style.color = "var(--text-muted)";
+    li.style.justifyContent = "center";
+    li.textContent = "目前無人在線";
+    dom.memberUl.appendChild(li);
+    return;
+  }
+
+  activeMembers.forEach(name => {
+    const li = document.createElement("li");
+    li.className = "member-item";
+    if (name === "講師") {
+      li.classList.add("teacher");
+    }
+
+    const dot = document.createElement("span");
+    dot.className = "member-status-dot";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "member-item-name";
+    nameSpan.textContent = name;
+
+    const roleSpan = document.createElement("span");
+    roleSpan.className = "member-item-role";
+    roleSpan.textContent = name === "講師" ? "講師" : "學員";
+
+    li.appendChild(dot);
+    li.appendChild(nameSpan);
+    li.appendChild(roleSpan);
+    dom.memberUl.appendChild(li);
+  });
 }
 
 function onRoomsListUpdate(roomsList) {

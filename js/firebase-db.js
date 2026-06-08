@@ -186,6 +186,40 @@ window.dbService = {
     }
   },
 
+  /**
+   * Updates user presence timestamp in Firestore
+   */
+  async updateMemberPresence(roomName, nickname) {
+    if (!isOfflineMode && typeof firebase !== 'undefined' && firebase.apps.length) {
+      try {
+        const db = firebase.firestore();
+        const docRef = db.collection("rooms").doc(roomName);
+        await docRef.update({
+          [`members.${nickname}`]: Date.now()
+        });
+      } catch (error) {
+        console.error("Firestore presence update failed:", error);
+      }
+    }
+  },
+
+  /**
+   * Removes user presence from Firestore
+   */
+  async removeMemberPresence(roomName, nickname) {
+    if (!isOfflineMode && typeof firebase !== 'undefined' && firebase.apps.length) {
+      try {
+        const db = firebase.firestore();
+        const docRef = db.collection("rooms").doc(roomName);
+        await docRef.update({
+          [`members.${nickname}`]: firebase.firestore.FieldValue.delete()
+        });
+      } catch (error) {
+        console.error("Firestore presence delete failed:", error);
+      }
+    }
+  },
+
   getDefaultRoomState(roomName) {
     return {
       roomName: roomName,
@@ -194,6 +228,7 @@ window.dbService = {
       groups: [],
       rootCauses: [],
       countermeasures: [],
+      members: {},
       lastActive: Date.now()
     };
   }
