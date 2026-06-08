@@ -1113,6 +1113,35 @@ header {
   margin-bottom: 20px;
 }
 
+/* Batch Export Room Selector Styles */
+.rooms-checkbox-list {
+  max-height: 250px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.batch-room-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: white;
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+}
+
+.batch-room-item:hover {
+  background: var(--primary-light);
+  border-color: var(--primary-glow);
+}
+
 /* Responsive Styles */
 @media (max-width: 768px) {
   .workspace {

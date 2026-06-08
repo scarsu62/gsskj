@@ -133,7 +133,17 @@ const dom = {
   modalSettings: document.getElementById("modal-settings"),
   modalSettingsClose: document.getElementById("modal-settings-close"),
   settingGeminiKey: document.getElementById("setting-gemini-key"),
-  btnSaveSettings: document.getElementById("btn-save-settings")
+  btnSaveSettings: document.getElementById("btn-save-settings"),
+
+  // Batch Export Elements
+  modalBatchExport: document.getElementById("modal-batch-export"),
+  modalBatchExportClose: document.getElementById("modal-batch-export-close"),
+  btnBatchSelectAll: document.getElementById("btn-batch-select-all"),
+  btnBatchDeselectAll: document.getElementById("btn-batch-deselect-all"),
+  batchRoomsList: document.getElementById("batch-rooms-list"),
+  btnExecuteBatchExport: document.getElementById("btn-execute-batch-export"),
+  btnLobbyBatchExport: document.getElementById("btn-lobby-batch-export"),
+  btnHeaderBatchExport: document.getElementById("btn-header-batch-export")
 };
 
 // UI Notification Toast
@@ -293,6 +303,26 @@ function bindUIEvents() {
     toggleModal(dom.modalSettings, false);
   });
 
+  // Batch Export Modal Triggers
+  const openBatchModal = () => {
+    populateBatchRoomsList();
+    toggleModal(dom.modalBatchExport, true);
+  };
+  dom.btnLobbyBatchExport.addEventListener("click", openBatchModal);
+  dom.btnHeaderBatchExport.addEventListener("click", openBatchModal);
+  dom.modalBatchExportClose.addEventListener("click", () => {
+    toggleModal(dom.modalBatchExport, false);
+  });
+  dom.btnBatchSelectAll.addEventListener("click", () => {
+    const chks = dom.batchRoomsList.querySelectorAll(".batch-room-checkbox");
+    chks.forEach(chk => chk.checked = true);
+  });
+  dom.btnBatchDeselectAll.addEventListener("click", () => {
+    const chks = dom.batchRoomsList.querySelectorAll(".batch-room-checkbox");
+    chks.forEach(chk => chk.checked = false);
+  });
+  dom.btnExecuteBatchExport.addEventListener("click", handleBatchExport);
+
   // Add Card (Student only)
   dom.btnAddCard.addEventListener("click", handleAddCard);
   dom.cardInput.addEventListener("keydown", (e) => {
@@ -337,6 +367,8 @@ async function handleTeacherPasswordInput() {
     dom.teacherRoomSelect.disabled = true;
     dom.teacherRoomInput.disabled = true;
     dom.btnJoinTeacher.disabled = true;
+    dom.btnLobbyBatchExport.style.display = "none";
+    dom.btnLobbyBatchExport.disabled = true;
     return;
   }
   const hash = await computeSHA256(value.toLowerCase());
@@ -345,6 +377,8 @@ async function handleTeacherPasswordInput() {
     dom.teacherRoomSelect.disabled = false;
     dom.teacherRoomInput.disabled = false;
     dom.btnJoinTeacher.disabled = false;
+    dom.btnLobbyBatchExport.style.display = "block";
+    dom.btnLobbyBatchExport.disabled = false;
     if (wasDisabled) {
       showToast("密語驗證成功，正在讀取線上活躍房間...", "success");
       window.dbService.subscribeToActiveRooms();
@@ -353,6 +387,8 @@ async function handleTeacherPasswordInput() {
     dom.teacherRoomSelect.disabled = true;
     dom.teacherRoomInput.disabled = true;
     dom.btnJoinTeacher.disabled = true;
+    dom.btnLobbyBatchExport.style.display = "none";
+    dom.btnLobbyBatchExport.disabled = true;
   }
 }
 
@@ -405,12 +441,14 @@ function enterApp() {
     dom.cardCreatorSection.style.display = "none";
     dom.studentActions.style.display = "none";
     dom.teacherActions.style.display = "flex";
+    dom.btnHeaderBatchExport.style.display = "inline-flex";
   } else {
     dom.userDisplayName.classList.remove("teacher");
     dom.teacherNav.classList.remove("active");
     dom.cardCreatorSection.style.display = "block";
     dom.studentActions.style.display = "flex";
     dom.teacherActions.style.display = "none";
+    dom.btnHeaderBatchExport.style.display = "none";
   }
 
   dom.displayRoomName.textContent = state.roomName;
@@ -457,6 +495,9 @@ function handleLogout() {
   dom.teacherRoomInput.value = "";
   dom.teacherRoomInput.disabled = true;
   dom.btnJoinTeacher.disabled = true;
+  dom.btnLobbyBatchExport.style.display = "none";
+  dom.btnLobbyBatchExport.disabled = true;
+  dom.btnHeaderBatchExport.style.display = "none";
   
   dom.appScreen.classList.remove("active");
   dom.lobbyScreen.style.display = "flex";
@@ -1310,13 +1351,162 @@ function handleDownloadExport() {
   
   const link = document.createElement("a");
   link.href = url;
-  link.setAttribute("download", `KJ_Affinity_${state.roomName}.md`);
+  const filename = state.roomName ? `KJ_Affinity_${state.roomName}.md` : "KJ_Affinity_Batch_Export.md";
+  link.setAttribute("download", filename);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
   
   showToast("Markdown 報告下載完成！", "success");
+}
+
+// -------------------------------------------------------------
+// BATCH EXPORTS FOR INSTRUCTOR
+// -------------------------------------------------------------
+function populateBatchRoomsList() {
+  const container = dom.batchRoomsList;
+  if (!container) return;
+  
+  container.innerHTML = "";
+  if (!state.activeRooms || state.activeRooms.length === 0) {
+    container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 20px 0;">目前無線上活躍的房間</div>`;
+    dom.btnExecuteBatchExport.disabled = true;
+    return;
+  }
+  
+  dom.btnExecuteBatchExport.disabled = false;
+  
+  state.activeRooms.forEach(roomName => {
+    const div = document.createElement("div");
+    div.className = "batch-room-item";
+    
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = roomName;
+    checkbox.id = `batch-room-chk-${roomName}`;
+    checkbox.className = "batch-room-checkbox";
+    checkbox.style.cursor = "pointer";
+    
+    const label = document.createElement("label");
+    label.htmlFor = `batch-room-chk-${roomName}`;
+    label.textContent = roomName;
+    label.style.cursor = "pointer";
+    label.style.fontSize = "0.9rem";
+    label.style.color = "var(--text-primary)";
+    label.style.flex = "1";
+    
+    div.appendChild(checkbox);
+    div.appendChild(label);
+    container.appendChild(div);
+  });
+}
+
+async function fetchRoomState(roomName) {
+  if (!state.offline && typeof firebase !== 'undefined' && firebase.apps.length) {
+    try {
+      const db = firebase.firestore();
+      const docRef = db.collection("rooms").doc(roomName);
+      const doc = await docRef.get();
+      if (doc.exists) {
+        return doc.data();
+      }
+    } catch (err) {
+      console.error(`Failed to fetch room state for ${roomName}:`, err);
+    }
+  }
+  return null;
+}
+
+function generateRoomMarkdown(roomName, roomData) {
+  const originalCards = state.cards;
+  const originalGroups = state.groups;
+  
+  state.cards = roomData.cards || [];
+  state.groups = roomData.groups || [];
+  const roomRound = roomData.round || 0;
+  
+  let md = `\n========================================================================\n`;
+  md += `# 小組房間：${roomName}\n`;
+  md += `當前輪次：共 ${roomRound + 1} 輪\n\n`;
+  
+  let maxRound = 0;
+  state.cards.forEach(c => {
+    if (c.round > maxRound) maxRound = c.round;
+  });
+
+  const rootRoundCards = state.cards.filter(c => c.round === maxRound);
+  const rootRoundGroups = state.groups.filter(g => g.round === maxRound);
+
+  const rootIndependent = rootRoundCards.filter(c => c.groupId === null);
+  if (rootIndependent.length > 0) {
+    md += `## 📌 最終獨立概念\n`;
+    rootIndependent.forEach(card => {
+      md += buildCardMarkdown(card, 0, maxRound);
+    });
+    md += `\n`;
+  }
+
+  if (rootRoundGroups.length > 0) {
+    md += `## 🗂️ 核心概念分類結構\n`;
+    rootRoundGroups.forEach(group => {
+      const groupCards = rootRoundCards.filter(c => c.groupId === group.id);
+      md += buildGroupMarkdown(group, groupCards, 0, maxRound);
+    });
+  }
+  
+  state.cards = originalCards;
+  state.groups = originalGroups;
+  
+  return md;
+}
+
+async function handleBatchExport() {
+  const checkboxes = dom.batchRoomsList.querySelectorAll(".batch-room-checkbox:checked");
+  if (checkboxes.length === 0) {
+    showToast("請至少選擇一個房間進行匯出！", "error");
+    return;
+  }
+  
+  const roomNames = Array.from(checkboxes).map(chk => chk.value);
+  dom.btnExecuteBatchExport.disabled = true;
+  showToast(`正在讀取 ${roomNames.length} 個房間的成果...`, "info");
+  
+  try {
+    const fetchPromises = roomNames.map(name => fetchRoomState(name));
+    const roomsData = await Promise.all(fetchPromises);
+    
+    let combinedMd = `# KJ 親和圖多小組成果彙整報告\n\n`;
+    combinedMd += `匯出時間：${new Date().toLocaleString()}\n`;
+    combinedMd += `匯出小組數量：共 ${roomNames.length} 組\n`;
+    combinedMd += `彙整小組清單：\n`;
+    roomNames.forEach(name => {
+      combinedMd += `- ${name}\n`;
+    });
+    combinedMd += `\n`;
+    
+    for (let i = 0; i < roomNames.length; i++) {
+      const roomName = roomNames[i];
+      const roomData = roomsData[i];
+      if (roomData && roomData.cards && roomData.cards.length > 0) {
+        combinedMd += generateRoomMarkdown(roomName, roomData);
+      } else {
+        combinedMd += `\n========================================================================\n`;
+        combinedMd += `# 小組房間：${roomName}\n`;
+        combinedMd += `（該房間目前無卡片資料或未初始化）\n`;
+      }
+    }
+    
+    toggleModal(dom.modalBatchExport, false);
+    dom.exportTextarea.value = combinedMd;
+    toggleModal(dom.modalExport, true);
+    showToast("批次成果匯出成功！", "success");
+  } catch (err) {
+    console.error("Batch export error:", err);
+    showToast("批次匯出過程中發生錯誤，請稍後再試！", "error");
+  } finally {
+    dom.btnExecuteBatchExport.disabled = false;
+  }
 }
 
 

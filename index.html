@@ -63,6 +63,9 @@
         <button type="submit" id="btn-join-teacher" class="btn btn-teacher" disabled>
           <i class="fa-solid fa-magnifying-glass-chart"></i> 瞬間切換巡房
         </button>
+        <button type="button" id="btn-lobby-batch-export" class="btn btn-secondary" style="margin-top: 10px; width: 100%; display: none;" disabled>
+          <i class="fa-solid fa-boxes-packing"></i> 批次成果匯出
+        </button>
       </form>
     </div>
   </div>
@@ -98,6 +101,9 @@
         </button>
         <button id="btn-settings" class="btn btn-secondary" title="系統金鑰設定">
           <i class="fa-solid fa-gear"></i> 設定
+        </button>
+        <button id="btn-header-batch-export" class="btn btn-secondary" title="批次成果匯出" style="display: none; border-color: var(--teacher-primary); color: var(--teacher-primary);">
+          <i class="fa-solid fa-boxes-packing"></i> 批次匯出
         </button>
         <button id="btn-logout" class="btn btn-secondary" title="登出並返回大廳">
           <i class="fa-solid fa-right-from-bracket"></i> 登出
@@ -262,6 +268,35 @@
       <div class="modal-footer">
         <button id="btn-save-settings" class="btn btn-primary" style="width: 100%;">
           <i class="fa-solid fa-floppy-disk"></i> 儲存設定
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BATCH EXPORT MODAL -->
+  <div id="modal-batch-export" class="modal-overlay">
+    <div class="modal glass-panel" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-boxes-packing"></i> 批次成果匯出 (教學小組成果)</h3>
+        <button id="modal-batch-export-close" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 15px;">
+          請勾選您要匯出成果的小組房間。系統將會合併下載這些小組在最後一輪的收斂成果。
+        </p>
+        <div style="margin-bottom: 12px; display: flex; gap: 10px;">
+          <button id="btn-batch-select-all" class="btn btn-secondary" style="font-size: 0.8rem; padding: 4px 8px; flex: 1;">全選</button>
+          <button id="btn-batch-deselect-all" class="btn btn-secondary" style="font-size: 0.8rem; padding: 4px 8px; flex: 1;">全部取消</button>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <div id="batch-rooms-list" class="rooms-checkbox-list">
+            <div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 20px 0;">載入房間列表中...</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-execute-batch-export" class="btn btn-primary" style="width: 100%;">
+          <i class="fa-solid fa-file-export"></i> 執行一鍵批次匯出 (MD)
         </button>
       </div>
     </div>
