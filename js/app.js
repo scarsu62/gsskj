@@ -1356,44 +1356,74 @@ function parseSingleRoomMarkdown(roomName, mdText) {
   const stack = [];
   let maxRound = 0;
   
+  let activeCard = null;
+  
+  function closeActiveCard() {
+    if (!activeCard) return;
+    const fullText = activeCard.lines.join("\n").trim();
+    const authorMatch = fullText.match(/\(由\s*\[(.*?)\]\s*提出\)\s*$/);
+    let author = "未知";
+    let text = fullText;
+    if (authorMatch) {
+      author = authorMatch[1].trim();
+      text = fullText.replace(/\(由\s*\[(.*?)\]\s*提出\)\s*$/, "").trim();
+    }
+    
+    const node = {
+      type: "card",
+      text: text,
+      author: author,
+      indent: activeCard.indent
+    };
+    
+    while (stack.length > 0 && stack[stack.length - 1].indent >= activeCard.indent) {
+      stack.pop();
+    }
+    
+    if (stack.length > 0) {
+      stack[stack.length - 1].node.children.push(node);
+    } else {
+      rootNodes.push(node);
+    }
+    
+    stack.push({ indent: activeCard.indent, node: node });
+    activeCard = null;
+  }
+  
   for (let line of lines) {
     line = line.replace(/\r/g, "");
     
+    // Parse round number from header if present
+    const roundMatch = line.match(/(?:總收斂輪次|當前輪次)：共\s*(\d+)\s*輪/);
+    if (roundMatch) {
+      const parsedRound = parseInt(roundMatch[1], 10) - 1;
+      if (parsedRound > maxRound) {
+        maxRound = parsedRound;
+      }
+    }
+    
     // Pattern for groups
     const groupMatch = line.match(/^(\s*)-\s*###\s*🗂\ufe0f?\s+(.*?)\s*\(第\s*(\d+)\s*輪群組分類\)/);
-    // Pattern for cards
-    const cardMatch = line.match(/^(\s*)-\s*📝\ufe0f?\s+(.*?)\s*\(由\s*\[(.*?)\]\s*提出\)/);
-    
-    let node = null;
-    let indent = 0;
+    // Pattern for card start line
+    const cardStartMatch = line.match(/^(\s*)-\s*📝\ufe0f?\s+(.*)/);
     
     if (groupMatch) {
-      indent = groupMatch[1].length;
+      closeActiveCard();
+      const indent = groupMatch[1].length;
       const name = groupMatch[2].trim();
       const roundNum = parseInt(groupMatch[3], 10);
-      node = {
+      const node = {
         type: "group",
         name: name,
         roundNum: roundNum,
         indent: indent,
         children: []
       };
+      
       if (roundNum - 1 > maxRound) {
         maxRound = roundNum - 1;
       }
-    } else if (cardMatch) {
-      indent = cardMatch[1].length;
-      const text = cardMatch[2].trim();
-      const author = cardMatch[3].trim();
-      node = {
-        type: "card",
-        text: text,
-        author: author,
-        indent: indent
-      };
-    }
-    
-    if (node) {
+      
       while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
         stack.pop();
       }
@@ -1405,8 +1435,20 @@ function parseSingleRoomMarkdown(roomName, mdText) {
       }
       
       stack.push({ indent: indent, node: node });
+    } else if (cardStartMatch) {
+      closeActiveCard();
+      activeCard = {
+        indent: cardStartMatch[1].length,
+        lines: [cardStartMatch[2]]
+      };
+    } else {
+      if (activeCard) {
+        activeCard.lines.push(line);
+      }
     }
   }
+  
+  closeActiveCard();
   
   const cardsList = [];
   const groupsList = [];
