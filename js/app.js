@@ -62,11 +62,13 @@ let state = {
   activeView: "board", // "board" or "tree"
   activeRooms: [],
   offline: true,
-  rootCauses: []
+  rootCauses: [],
+  countermeasures: []
 };
 
 // Tracking active root cause analysis group
 let activeRootCauseGroupId = null;
+let activeCountermeasuresGroupId = null;
 
 // DOM Element Cache
 const dom = {
@@ -154,7 +156,14 @@ const dom = {
   modalRootCauseClose: document.getElementById("modal-root-cause-close"),
   modalRootCauseOk: document.getElementById("modal-root-cause-ok"),
   rootCauseGroupName: document.getElementById("root-cause-group-name"),
-  rootCauseTreeContainer: document.getElementById("root-cause-tree-container")
+  rootCauseTreeContainer: document.getElementById("root-cause-tree-container"),
+
+  // Countermeasures Elements
+  modalCountermeasures: document.getElementById("modal-countermeasures"),
+  modalCountermeasuresClose: document.getElementById("modal-countermeasures-close"),
+  modalCountermeasuresOk: document.getElementById("modal-countermeasures-ok"),
+  countermeasuresGroupName: document.getElementById("countermeasures-group-name"),
+  countermeasuresTreeContainer: document.getElementById("countermeasures-tree-container")
 };
 
 // UI Notification Toast
@@ -342,6 +351,16 @@ function bindUIEvents() {
   dom.modalRootCauseOk.addEventListener("click", () => {
     activeRootCauseGroupId = null;
     toggleModal(dom.modalRootCause, false);
+  });
+
+  // Countermeasures Modal Listeners
+  dom.modalCountermeasuresClose.addEventListener("click", () => {
+    activeCountermeasuresGroupId = null;
+    toggleModal(dom.modalCountermeasures, false);
+  });
+  dom.modalCountermeasuresOk.addEventListener("click", () => {
+    activeCountermeasuresGroupId = null;
+    toggleModal(dom.modalCountermeasures, false);
   });
 
   // Add Card (Student only)
@@ -558,13 +577,14 @@ function onRoomStateUpdate(roomState) {
   state.cards = roomState.cards || [];
   state.groups = roomState.groups || [];
   state.rootCauses = roomState.rootCauses || [];
+  state.countermeasures = roomState.countermeasures || [];
 
   dom.displayRoundNum.textContent = `第 ${state.currentRound + 1} 輪`;
   
   if (state.currentRound === 0) {
     dom.roundDesc.textContent = "第一階段：收集卡片與基本親和分組。可以拖曳卡片或點擊 AI 一鍵歸類。";
   } else {
-    dom.roundDesc.textContent = `第 ${state.currentRound + 1} 階段：將前一輪的分類標籤當作「高階卡片」，進行更高層次的抽象收斂歸類。`;
+    dom.roundDesc.textContent = `第 ${state.currentRound + 1} 階段：將前一輪的分類標籤當作「高階卡片」，進行更高層次的抽象收斂归類。`;
   }
 
   if (state.userRole === "student" && state.currentRound > 0) {
@@ -578,6 +598,9 @@ function onRoomStateUpdate(roomState) {
 
   if (activeRootCauseGroupId) {
     renderRootCauseTree(activeRootCauseGroupId);
+  }
+  if (activeCountermeasuresGroupId) {
+    renderCountermeasuresTree(activeCountermeasuresGroupId);
   }
 }
 
@@ -697,6 +720,7 @@ function renderBoardView() {
     const actionsHtml = `
       <div class="column-actions">
         <button class="column-btn root-cause-btn" title="根因分析" style="color: var(--primary);"><i class="fa-solid fa-network-wired"></i></button>
+        <button class="column-btn countermeasure-btn" title="對策規劃" style="color: var(--success);"><i class="fa-solid fa-lightbulb"></i></button>
         ${state.userRole === "student" ? `
           <button class="column-btn edit-group-btn" title="修改名稱"><i class="fa-solid fa-pen"></i></button>
           <button class="column-btn delete delete-group-btn" title="解散群組"><i class="fa-solid fa-trash-can"></i></button>
@@ -723,6 +747,16 @@ function renderBoardView() {
         dom.rootCauseGroupName.textContent = group.name;
         renderRootCauseTree(group.id);
         toggleModal(dom.modalRootCause, true);
+      });
+    }
+
+    const cmBtn = grpColumn.querySelector(".countermeasure-btn");
+    if (cmBtn) {
+      cmBtn.addEventListener("click", () => {
+        activeCountermeasuresGroupId = group.id;
+        dom.countermeasuresGroupName.textContent = group.name;
+        renderCountermeasuresTree(group.id);
+        toggleModal(dom.modalCountermeasures, true);
       });
     }
 
@@ -781,9 +815,13 @@ function renderBoardView() {
             }
           });
           state.groups = state.groups.filter(g => g.id !== group.id);
+          state.rootCauses = (state.rootCauses || []).filter(rc => rc.groupId !== group.id);
+          state.countermeasures = (state.countermeasures || []).filter(cm => cm.groupId !== group.id);
           window.dbService.updateRoomState(state.roomName, {
             cards: state.cards,
-            groups: state.groups
+            groups: state.groups,
+            rootCauses: state.rootCauses,
+            countermeasures: state.countermeasures
           });
           showToast(`已解散群組「${group.name}」`, "success");
         }
@@ -1685,7 +1723,11 @@ function renderRootCauseTree(groupId) {
             } while (added);
             
             state.rootCauses = state.rootCauses.filter(n => !idsToDelete.has(n.id));
-            window.dbService.updateRoomState(state.roomName, { rootCauses: state.rootCauses });
+            state.countermeasures = (state.countermeasures || []).filter(c => !idsToDelete.has(c.causeId));
+            window.dbService.updateRoomState(state.roomName, {
+              rootCauses: state.rootCauses,
+              countermeasures: state.countermeasures
+            });
             renderRootCauseTree(groupId);
           }
         });
@@ -1720,9 +1762,170 @@ function renderRootCauseTree(groupId) {
     emptyDiv.style.fontSize = "0.9rem";
     emptyDiv.innerHTML = `
       <i class="fa-solid fa-network-wired" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
-      尚未新增任何根因分析節點。<br>${state.userRole === "student" ? "請點擊上方的「新增主因」按鈕開始分析主要原因！" : "此小組尚未進行根因分析。"}
+  container.appendChild(treeDiv);
+}
+
+// -------------------------------------------------------------
+// COUNTERMEASURES PLANNING TREE
+// -------------------------------------------------------------
+function renderCountermeasuresTree(groupId) {
+  const container = dom.countermeasuresTreeContainer;
+  if (!container) return;
+  
+  container.innerHTML = "";
+  
+  const groupNodes = (state.rootCauses || []).filter(n => n.groupId === groupId);
+  const group = state.groups.find(g => g.id === groupId);
+  const groupName = group ? group.name : "未知群組";
+  
+  const treeDiv = document.createElement("div");
+  treeDiv.className = "cm-tree-container";
+  
+  const rootBox = document.createElement("div");
+  rootBox.className = "rc-root-box";
+  rootBox.innerHTML = `
+    <i class="fa-solid fa-circle-question" style="color: var(--primary);"></i>
+    <span>核心課題：${escapeHtml(groupName)}</span>
+  `;
+  treeDiv.appendChild(rootBox);
+  
+  if (groupNodes.length === 0) {
+    const emptyDiv = document.createElement("div");
+    emptyDiv.style.textAlign = "center";
+    emptyDiv.style.padding = "40px 20px";
+    emptyDiv.style.color = "var(--text-muted)";
+    emptyDiv.style.fontSize = "0.9rem";
+    emptyDiv.innerHTML = `
+      <i class="fa-solid fa-lightbulb" style="font-size: 2.5rem; margin-bottom: 10px; display: block; opacity: 0.5; color: var(--success);"></i>
+      尚未建立任何根因分析節點，請先至「根因分析」新增原因後，再來規劃對策！
     `;
     treeDiv.appendChild(emptyDiv);
+    container.appendChild(treeDiv);
+    return;
+  }
+  
+  function buildSubtree(parentId) {
+    const children = groupNodes.filter(n => n.parentId === parentId);
+    if (children.length === 0) return null;
+    
+    const ul = document.createElement("ul");
+    ul.className = "rc-node-list";
+    
+    children.forEach(node => {
+      const li = document.createElement("li");
+      li.className = "rc-node-item";
+      
+      const content = document.createElement("div");
+      content.className = "rc-node-content";
+      
+      const textSpan = document.createElement("span");
+      textSpan.className = "rc-node-text";
+      textSpan.textContent = node.text;
+      content.appendChild(textSpan);
+      
+      const cms = (state.countermeasures || []).filter(c => c.causeId === node.id);
+      
+      if (state.userRole === "student") {
+        const addCmBtn = document.createElement("button");
+        addCmBtn.className = "cm-node-btn";
+        addCmBtn.title = "規劃對策";
+        addCmBtn.innerHTML = `<i class="fa-solid fa-lightbulb"></i> + 對策`;
+        addCmBtn.addEventListener("click", () => {
+          const text = prompt(`針對原因「${node.text}」，請輸入您的對策方案：`);
+          if (text && text.trim()) {
+            const newCm = {
+              id: generateUUID(),
+              groupId: groupId,
+              causeId: node.id,
+              text: text.trim(),
+              author: state.userNickname || "成員"
+            };
+            state.countermeasures.push(newCm);
+            window.dbService.updateRoomState(state.roomName, { countermeasures: state.countermeasures });
+            renderCountermeasuresTree(groupId);
+          }
+        });
+        content.appendChild(addCmBtn);
+      }
+      
+      li.appendChild(content);
+      
+      if (cms.length > 0) {
+        const cmListDiv = document.createElement("div");
+        cmListDiv.className = "cm-list";
+        
+        cms.forEach(cm => {
+          const cmBox = document.createElement("div");
+          cmBox.className = "cm-box";
+          
+          const cmTextSpan = document.createElement("span");
+          cmTextSpan.className = "cm-text";
+          cmTextSpan.textContent = `💡 ${cm.text}`;
+          cmBox.appendChild(cmTextSpan);
+          
+          if (cm.author) {
+            const authorSpan = document.createElement("span");
+            authorSpan.className = "kj-card-author";
+            authorSpan.style.marginLeft = "8px";
+            authorSpan.style.fontSize = "0.7rem";
+            authorSpan.textContent = `(${cm.author})`;
+            cmBox.appendChild(authorSpan);
+          }
+          
+          if (state.userRole === "student") {
+            const cmActions = document.createElement("div");
+            cmActions.className = "cm-actions";
+            
+            const editCmBtn = document.createElement("button");
+            editCmBtn.className = "cm-btn";
+            editCmBtn.title = "修改對策";
+            editCmBtn.innerHTML = `<i class="fa-solid fa-pen"></i>`;
+            editCmBtn.addEventListener("click", () => {
+              const newText = prompt("請修改對策內容：", cm.text);
+              if (newText && newText.trim() && newText.trim() !== cm.text) {
+                cm.text = newText.trim();
+                window.dbService.updateRoomState(state.roomName, { countermeasures: state.countermeasures });
+                renderCountermeasuresTree(groupId);
+              }
+            });
+            
+            const delCmBtn = document.createElement("button");
+            delCmBtn.className = "cm-btn delete";
+            delCmBtn.title = "刪除對策";
+            delCmBtn.innerHTML = `<i class="fa-solid fa-trash-can"></i>`;
+            delCmBtn.addEventListener("click", () => {
+              if (confirm(`確定要刪除此對策「${cm.text}」嗎？`)) {
+                state.countermeasures = state.countermeasures.filter(c => c.id !== cm.id);
+                window.dbService.updateRoomState(state.roomName, { countermeasures: state.countermeasures });
+                renderCountermeasuresTree(groupId);
+              }
+            });
+            
+            cmActions.appendChild(editCmBtn);
+            cmActions.appendChild(delCmBtn);
+            cmBox.appendChild(cmActions);
+          }
+          
+          cmListDiv.appendChild(cmBox);
+        });
+        
+        li.appendChild(cmListDiv);
+      }
+      
+      const childSubtree = buildSubtree(node.id);
+      if (childSubtree) {
+        li.appendChild(childSubtree);
+      }
+      
+      ul.appendChild(li);
+    });
+    
+    return ul;
+  }
+  
+  const level1Tree = buildSubtree(null);
+  if (level1Tree) {
+    treeDiv.appendChild(level1Tree);
   }
   
   container.appendChild(treeDiv);
@@ -1730,8 +1933,12 @@ function renderRootCauseTree(groupId) {
 
 function resetSidebarState() {
   activeRootCauseGroupId = null;
+  activeCountermeasuresGroupId = null;
   if (dom.modalRootCause) {
     toggleModal(dom.modalRootCause, false);
+  }
+  if (dom.modalCountermeasures) {
+    toggleModal(dom.modalCountermeasures, false);
   }
   if (dom.sidebar) {
     dom.sidebar.classList.remove("collapsed");

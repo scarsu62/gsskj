@@ -192,6 +192,8 @@ window.dbService = {
       round: 0,
       cards: [],
       groups: [],
+      rootCauses: [],
+      countermeasures: [],
       lastActive: Date.now()
     };
   }

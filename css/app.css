@@ -1245,6 +1245,102 @@ header {
   color: var(--danger);
 }
 
+/* Countermeasures Tree & Card Styles */
+.cm-tree-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 10px 0;
+}
+
+.cm-node-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  border-radius: 3px;
+  transition: var(--transition);
+  margin-left: 10px;
+}
+
+.cm-node-btn:hover {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.cm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  margin-left: 24px;
+  border-left: 2px solid rgba(16, 185, 129, 0.2);
+  padding-left: 12px;
+}
+
+.cm-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--success-light);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  max-width: 90%;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+  position: relative;
+  margin-top: 4px;
+}
+
+.cm-box:hover {
+  border-color: var(--success);
+  box-shadow: var(--shadow-md);
+}
+
+.cm-text {
+  font-size: 0.85rem;
+  color: #065f46;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.cm-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+}
+
+.cm-box:hover .cm-actions {
+  opacity: 1;
+}
+
+.cm-btn {
+  border: none;
+  background: transparent;
+  color: #047857;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 0.75rem;
+  border-radius: 3px;
+  transition: var(--transition);
+}
+
+.cm-btn:hover {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.cm-btn.delete:hover {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
 /* Responsive Styles */
 @media (max-width: 768px) {
   .workspace {

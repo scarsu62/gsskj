@@ -329,6 +329,33 @@
     </div>
   </div>
 
+  <!-- COUNTERMEASURES MODAL -->
+  <div id="modal-countermeasures" class="modal-overlay">
+    <div class="modal glass-panel" style="max-width: 850px; width: 90%;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-lightbulb"></i> 對策規劃 (Countermeasures)</h3>
+        <button id="modal-countermeasures-close" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body" style="max-height: 550px; overflow-y: auto;">
+        <div id="countermeasures-group-info" style="margin-bottom: 15px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color);">
+          <div style="font-size: 0.85rem; color: var(--text-secondary);">針對以下根因分析規劃對策：</div>
+          <div id="countermeasures-group-name" style="font-size: 1.2rem; font-weight: 700; color: var(--success); margin-top: 4px;">[群組名稱]</div>
+        </div>
+        <div id="countermeasures-tree-container">
+          <!-- Dynamically populated tree showing root cause nodes and their corresponding countermeasures -->
+        </div>
+      </div>
+      <div class="modal-footer" style="background: #f8fafc; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.75rem; color: var(--text-muted);">
+          <i class="fa-solid fa-circle-info"></i> 在原因旁點擊 💡 + 對策 規劃具體行動方案，對策卡片上可 ✏️ 修改 或 🗑️ 刪除。
+        </span>
+        <button id="modal-countermeasures-ok" class="btn btn-primary" style="background: var(--success); border-color: var(--success);">
+          完成
+        </button>
+      </div>
+    </div>
+  </div>
+
 
 
   <!-- Firebase Compat libraries loaded via CDN -->
