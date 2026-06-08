@@ -115,6 +115,7 @@ const dom = {
   btnRevertRound: document.getElementById("btn-revert-round"),
   teacherActions: document.getElementById("teacher-actions"),
   btnResetRoom: document.getElementById("btn-reset-room"),
+  btnDeleteRoom: document.getElementById("btn-delete-room"),
   btnExportMd: document.getElementById("btn-export-md"),
 
   // Workspace View Canvas Elements
@@ -406,6 +407,7 @@ function bindUIEvents() {
   dom.btnAdvanceRound.addEventListener("click", handleAdvanceRound);
   dom.btnRevertRound.addEventListener("click", handleRevertRound);
   dom.btnResetRoom.addEventListener("click", handleResetRoom);
+  dom.btnDeleteRoom.addEventListener("click", handleDeleteRoom);
 
   // View Panel Tabs
   dom.viewTabBoard.addEventListener("click", () => switchView("board"));
@@ -1486,6 +1488,39 @@ function handleResetRoom() {
     window.dbService.resetRoom(state.roomName).then(() => {
       showToast("此房間的數據已完全重置", "success");
     });
+  }
+}
+
+async function handleDeleteRoom() {
+  if (state.userRole !== "teacher") return;
+
+  // 1. Safety check: Check if there are cards in the room
+  if (state.cards && state.cards.length > 0) {
+    showToast("此房間內尚有卡片，請先點擊『重置房間』清空所有資料後，才能進行刪除！", "error");
+    alert("⚠️ 無法刪除房間\n此房間內尚有卡片，請先點擊『重置房間』清空所有資料後，才能進行刪除！");
+    return;
+  }
+
+  // 2. Second Confirmation
+  if (confirm(`⚠️ 【危險刪除警告】\n確定要永久刪除房間「${state.roomName}」嗎？這將會從資料庫中完全移除此房間，無法復原！`)) {
+    try {
+      showToast("正在從雲端資料庫刪除房間...", "info");
+      
+      // Clean up local presence before deletion
+      if (state.presenceIntervalId) {
+        clearInterval(state.presenceIntervalId);
+        state.presenceIntervalId = null;
+      }
+      
+      await window.dbService.deleteRoom(state.roomName);
+      showToast(`房間「${state.roomName}」已成功刪除！`, "success");
+      
+      // Redirect back to lobby since room is gone
+      handleLogout();
+    } catch (error) {
+      console.error("Delete room failed:", error);
+      showToast("刪除房間失敗，請重試！", "error");
+    }
   }
 }
 

@@ -220,6 +220,24 @@ window.dbService = {
     }
   },
 
+  /**
+   * Deletes a room document completely from Firestore
+   */
+  async deleteRoom(roomName) {
+    if (!isOfflineMode && typeof firebase !== 'undefined' && firebase.apps.length) {
+      try {
+        const db = firebase.firestore();
+        await db.collection("rooms").doc(roomName).delete();
+      } catch (error) {
+        console.error("Firestore delete doc failed:", error);
+        throw error;
+      }
+    } else {
+      console.error("Firestore is unconfigured. Cannot delete room.");
+      throw new Error("Firestore is offline");
+    }
+  },
+
   getDefaultRoomState(roomName) {
     return {
       roomName: roomName,
