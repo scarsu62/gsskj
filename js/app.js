@@ -1512,11 +1512,21 @@ async function handleDeleteRoom() {
         state.presenceIntervalId = null;
       }
       
-      await window.dbService.deleteRoom(state.roomName);
-      showToast(`房間「${state.roomName}」已成功刪除！`, "success");
+      const deletedRoomName = state.roomName;
+      await window.dbService.deleteRoom(deletedRoomName);
+      showToast(`房間「${deletedRoomName}」已成功刪除！`, "success");
       
-      // Redirect back to lobby since room is gone
-      handleLogout();
+      // Determine the next room to enter
+      const remainingRooms = state.activeRooms.filter(r => r !== deletedRoomName);
+      if (remainingRooms.length > 0) {
+        const nextRoom = remainingRooms[0];
+        showToast(`已自動切換至下一個房間：${nextRoom}`, "info");
+        state.roomName = null; // Prevent switchRoom from updating the deleted doc
+        await switchRoom(nextRoom);
+      } else {
+        showToast("已無其他活躍房間，返回大廳！", "info");
+        handleLogout();
+      }
     } catch (error) {
       console.error("Delete room failed:", error);
       showToast("刪除房間失敗，請重試！", "error");
