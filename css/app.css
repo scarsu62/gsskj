@@ -425,6 +425,7 @@ header {
 /* Sidebar / Left Control Panel */
 .sidebar {
   width: 320px;
+  flex-shrink: 0;
   padding: 20px;
   border-right: 1px solid var(--border-color);
   display: flex;
@@ -432,6 +433,41 @@ header {
   gap: 20px;
   background: var(--bg-glass);
   overflow-y: auto;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              padding-right 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              opacity 0.3s ease, 
+              border-right-width 0.3s ease;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  opacity: 0;
+  border-right-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sidebar-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.sidebar-toggle-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
 }
 
 .sidebar-section {
@@ -1088,5 +1124,18 @@ header {
     max-height: 250px;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                padding-top 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                padding-bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.3s ease, 
+                border-bottom-width 0.3s ease;
+  }
+  .sidebar.collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    border-bottom-width: 0;
+    overflow: hidden;
   }
 }

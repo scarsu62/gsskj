@@ -92,6 +92,8 @@ const dom = {
   btnShare: document.getElementById("btn-share"),
   btnSettings: document.getElementById("btn-settings"),
   btnLogout: document.getElementById("btn-logout"),
+  btnToggleSidebar: document.getElementById("btn-toggle-sidebar"),
+  sidebar: document.querySelector(".sidebar"),
 
   // Sidebar Elements
   cardCreatorSection: document.getElementById("card-creator-section"),
@@ -252,6 +254,24 @@ function bindUIEvents() {
   // Logout
   dom.btnLogout.addEventListener("click", handleLogout);
 
+  // Sidebar Toggle Collapse
+  dom.btnToggleSidebar.addEventListener("click", () => {
+    dom.sidebar.classList.toggle("collapsed");
+    const isCollapsed = dom.sidebar.classList.contains("collapsed");
+    
+    // Update icon and title
+    const icon = dom.btnToggleSidebar.querySelector("i");
+    if (icon) {
+      if (isCollapsed) {
+        icon.className = "fa-solid fa-chevron-right";
+        dom.btnToggleSidebar.title = "展開控制面板";
+      } else {
+        icon.className = "fa-solid fa-chevron-left";
+        dom.btnToggleSidebar.title = "收起控制面板";
+      }
+    }
+  });
+
   // Settings & Settings Modal
   dom.btnSettings.addEventListener("click", () => {
     const currentKey = localStorage.getItem("KJ_GEMINI_API_KEY") || "";
@@ -394,6 +414,7 @@ function enterApp() {
   }
 
   dom.displayRoomName.textContent = state.roomName;
+  resetSidebarState();
   
   dom.lobbyScreen.style.display = "none";
   dom.appScreen.classList.add("active");
@@ -410,6 +431,7 @@ function enterApp() {
 function switchRoom(newRoomName) {
   state.roomName = newRoomName;
   dom.displayRoomName.textContent = newRoomName;
+  resetSidebarState();
   window.dbService.subscribeToRoom(newRoomName);
   
   const encodedRoom = encodeRoomName(newRoomName);
@@ -421,6 +443,7 @@ function switchRoom(newRoomName) {
 
 function handleLogout() {
   window.dbService.unsubscribeFromFirebase();
+  resetSidebarState();
   
   state.userRole = null;
   state.userNickname = "";
@@ -1297,6 +1320,19 @@ function handleDownloadExport() {
 }
 
 
+
+function resetSidebarState() {
+  if (dom.sidebar) {
+    dom.sidebar.classList.remove("collapsed");
+  }
+  if (dom.btnToggleSidebar) {
+    dom.btnToggleSidebar.title = "收起控制面板";
+    const icon = dom.btnToggleSidebar.querySelector("i");
+    if (icon) {
+      icon.className = "fa-solid fa-chevron-left";
+    }
+  }
+}
 
 // -------------------------------------------------------------
 // UTILITIES

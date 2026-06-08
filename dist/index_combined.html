@@ -436,6 +436,7 @@ header {
 /* Sidebar / Left Control Panel */
 .sidebar {
   width: 320px;
+  flex-shrink: 0;
   padding: 20px;
   border-right: 1px solid var(--border-color);
   display: flex;
@@ -443,6 +444,41 @@ header {
   gap: 20px;
   background: var(--bg-glass);
   overflow-y: auto;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              padding-right 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              opacity 0.3s ease, 
+              border-right-width 0.3s ease;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  opacity: 0;
+  border-right-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sidebar-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.sidebar-toggle-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
 }
 
 .sidebar-section {
@@ -1099,6 +1135,19 @@ header {
     max-height: 250px;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                padding-top 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                padding-bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.3s ease, 
+                border-bottom-width 0.3s ease;
+  }
+  .sidebar.collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    border-bottom-width: 0;
+    overflow: hidden;
   }
 }
 
@@ -1271,8 +1320,13 @@ header {
       <main class="main-content">
         <!-- Content Area Navigation Toolbar -->
         <div class="content-toolbar">
-          <div class="toolbar-title">
-            <i class="fa-solid fa-door-open"></i> 房間名稱：<span id="display-room-name">未加入</span>
+          <div class="toolbar-left" style="display: flex; align-items: center; gap: 12px;">
+            <button id="btn-toggle-sidebar" class="sidebar-toggle-btn" title="收起控制面板">
+              <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <div class="toolbar-title">
+              <i class="fa-solid fa-door-open"></i> 房間名稱：<span id="display-room-name">未加入</span>
+            </div>
           </div>
           
           <!-- View Toggle Tabs -->
@@ -1827,6 +1881,8 @@ const dom = {
   btnShare: document.getElementById("btn-share"),
   btnSettings: document.getElementById("btn-settings"),
   btnLogout: document.getElementById("btn-logout"),
+  btnToggleSidebar: document.getElementById("btn-toggle-sidebar"),
+  sidebar: document.querySelector(".sidebar"),
 
   // Sidebar Elements
   cardCreatorSection: document.getElementById("card-creator-section"),
@@ -1987,6 +2043,24 @@ function bindUIEvents() {
   // Logout
   dom.btnLogout.addEventListener("click", handleLogout);
 
+  // Sidebar Toggle Collapse
+  dom.btnToggleSidebar.addEventListener("click", () => {
+    dom.sidebar.classList.toggle("collapsed");
+    const isCollapsed = dom.sidebar.classList.contains("collapsed");
+    
+    // Update icon and title
+    const icon = dom.btnToggleSidebar.querySelector("i");
+    if (icon) {
+      if (isCollapsed) {
+        icon.className = "fa-solid fa-chevron-right";
+        dom.btnToggleSidebar.title = "展開控制面板";
+      } else {
+        icon.className = "fa-solid fa-chevron-left";
+        dom.btnToggleSidebar.title = "收起控制面板";
+      }
+    }
+  });
+
   // Settings & Settings Modal
   dom.btnSettings.addEventListener("click", () => {
     const currentKey = localStorage.getItem("KJ_GEMINI_API_KEY") || "";
@@ -2129,6 +2203,7 @@ function enterApp() {
   }
 
   dom.displayRoomName.textContent = state.roomName;
+  resetSidebarState();
   
   dom.lobbyScreen.style.display = "none";
   dom.appScreen.classList.add("active");
@@ -2145,6 +2220,7 @@ function enterApp() {
 function switchRoom(newRoomName) {
   state.roomName = newRoomName;
   dom.displayRoomName.textContent = newRoomName;
+  resetSidebarState();
   window.dbService.subscribeToRoom(newRoomName);
   
   const encodedRoom = encodeRoomName(newRoomName);
@@ -2156,6 +2232,7 @@ function switchRoom(newRoomName) {
 
 function handleLogout() {
   window.dbService.unsubscribeFromFirebase();
+  resetSidebarState();
   
   state.userRole = null;
   state.userNickname = "";
@@ -3032,6 +3109,19 @@ function handleDownloadExport() {
 }
 
 
+
+function resetSidebarState() {
+  if (dom.sidebar) {
+    dom.sidebar.classList.remove("collapsed");
+  }
+  if (dom.btnToggleSidebar) {
+    dom.btnToggleSidebar.title = "收起控制面板";
+    const icon = dom.btnToggleSidebar.querySelector("i");
+    if (icon) {
+      icon.className = "fa-solid fa-chevron-left";
+    }
+  }
+}
 
 // -------------------------------------------------------------
 // UTILITIES

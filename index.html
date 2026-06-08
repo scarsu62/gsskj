@@ -177,8 +177,13 @@
       <main class="main-content">
         <!-- Content Area Navigation Toolbar -->
         <div class="content-toolbar">
-          <div class="toolbar-title">
-            <i class="fa-solid fa-door-open"></i> 房間名稱：<span id="display-room-name">未加入</span>
+          <div class="toolbar-left" style="display: flex; align-items: center; gap: 12px;">
+            <button id="btn-toggle-sidebar" class="sidebar-toggle-btn" title="收起控制面板">
+              <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <div class="toolbar-title">
+              <i class="fa-solid fa-door-open"></i> 房間名稱：<span id="display-room-name">未加入</span>
+            </div>
           </div>
           
           <!-- View Toggle Tabs -->
