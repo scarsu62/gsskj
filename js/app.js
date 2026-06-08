@@ -707,13 +707,99 @@ function createCardDOM(card) {
     badgeHtml = `<span class="kj-card-badge" style="background:#f1f5f9; color:var(--text-secondary);">繼承</span>`;
   }
 
+  let actionsHtml = "";
+  if (state.userRole === "student") {
+    actionsHtml = `
+      <div class="kj-card-actions">
+        <button class="card-action-btn edit-card-btn" title="修改"><i class="fa-solid fa-pen"></i></button>
+        <button class="card-action-btn delete-card-btn" title="刪除"><i class="fa-solid fa-trash-can"></i></button>
+      </div>
+    `;
+  }
+
   cardDiv.innerHTML = `
+    ${actionsHtml}
     <div class="kj-card-text">${escapeHtml(card.text)}</div>
     <div class="kj-card-footer">
       <span class="kj-card-author"><i class="fa-regular fa-user"></i> ${escapeHtml(card.author)}</span>
       ${badgeHtml}
     </div>
   `;
+
+  if (state.userRole === "student") {
+    const editBtn = cardDiv.querySelector(".edit-card-btn");
+    const deleteBtn = cardDiv.querySelector(".delete-card-btn");
+    const textDiv = cardDiv.querySelector(".kj-card-text");
+
+    const triggerEdit = () => {
+      cardDiv.setAttribute("draggable", "false");
+      
+      const textarea = document.createElement("textarea");
+      textarea.className = "inline-edit-textarea";
+      textarea.value = card.text;
+      
+      textDiv.replaceWith(textarea);
+      textarea.focus();
+      textarea.select();
+
+      let finished = false;
+      const saveEdit = () => {
+        if (finished) return;
+        finished = true;
+        const newText = textarea.value.trim();
+        if (newText && newText !== card.text) {
+          card.text = newText;
+          window.dbService.updateRoomState(state.roomName, { cards: state.cards });
+          showToast("已更新卡片內容", "success");
+        } else {
+          renderBoardView();
+        }
+      };
+
+      const cancelEdit = () => {
+        if (finished) return;
+        finished = true;
+        renderBoardView();
+      };
+
+      textarea.addEventListener("blur", saveEdit);
+      textarea.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          saveEdit();
+        }
+        if (e.key === "Escape") {
+          cancelEdit();
+        }
+      });
+    };
+
+    if (editBtn) {
+      editBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        triggerEdit();
+      });
+    }
+
+    if (textDiv) {
+      textDiv.addEventListener("dblclick", (e) => {
+        e.stopPropagation();
+        triggerEdit();
+      });
+    }
+
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (confirm("確定要刪除這張卡片嗎？此操作無法復原。")) {
+          state.cards = state.cards.filter(c => c.id !== card.id);
+          window.dbService.updateRoomState(state.roomName, { cards: state.cards });
+          showToast("已刪除卡片", "success");
+        }
+      });
+    }
+  }
+
   return cardDiv;
 }
 

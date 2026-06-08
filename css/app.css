@@ -772,6 +772,58 @@ header {
   font-weight: 600;
 }
 
+.kj-card-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.kj-card:hover .kj-card-actions {
+  opacity: 1;
+}
+
+.card-action-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  box-shadow: var(--shadow-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.card-action-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.card-action-btn.delete-card-btn:hover {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+.inline-edit-textarea {
+  box-sizing: border-box;
+  width: 100% !important;
+  border: 1px solid var(--primary) !important;
+  box-shadow: 0 0 0 2px var(--primary-glow) !important;
+}
+
+@media (max-width: 768px) {
+  .kj-card-actions {
+    opacity: 0.8;
+  }
+}
+
 /* --- TREE VIEW --- */
 .tree-container {
   max-width: 800px;
