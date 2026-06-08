@@ -3478,9 +3478,9 @@ function parseSingleRoomMarkdown(roomName, mdText) {
     line = line.replace(/\r/g, "");
     
     // Pattern for groups
-    const groupMatch = line.match(/^(\s*)-\s+###\s+🗂️\s+(.*?)\s+\(第\s+(\d+)\s+輪群組分類\)/);
+    const groupMatch = line.match(/^(\s*)-\s*###\s*🗂\ufe0f?\s+(.*?)\s*\(第\s*(\d+)\s*輪群組分類\)/);
     // Pattern for cards
-    const cardMatch = line.match(/^(\s*)-\s+📝\s+(.*?)\s+\(由\s+\[(.*?)\]\s+提出\)/);
+    const cardMatch = line.match(/^(\s*)-\s*📝\ufe0f?\s+(.*?)\s*\(由\s*\[(.*?)\]\s*提出\)/);
     
     let node = null;
     let indent = 0;
