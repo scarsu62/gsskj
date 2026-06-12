@@ -1505,14 +1505,18 @@ async function handleDeleteRoom() {
   if (confirm(`⚠️ 【危險刪除警告】\n確定要永久刪除房間「${state.roomName}」嗎？這將會從資料庫中完全移除此房間，無法復原！`)) {
     try {
       showToast("正在從雲端資料庫刪除房間...", "info");
-      
+      const deletedRoomName = state.roomName;
+      state.roomName = null; // Clear room name immediately to avoid beforeunload or updates
+
       // Clean up local presence before deletion
       if (state.presenceIntervalId) {
         clearInterval(state.presenceIntervalId);
         state.presenceIntervalId = null;
       }
       
-      const deletedRoomName = state.roomName;
+      // Unsubscribe from room listener so it doesn't auto-recreate the room on deletion
+      window.dbService.unsubscribeFromRoom();
+      
       await window.dbService.deleteRoom(deletedRoomName);
       showToast(`房間「${deletedRoomName}」已成功刪除！`, "success");
       

@@ -186,6 +186,16 @@ window.dbService = {
     }
   },
 
+  unsubscribeFromRoom() {
+    if (roomUnsubscribe) {
+      if (typeof roomUnsubscribe === 'function') {
+        roomUnsubscribe();
+      }
+      roomUnsubscribe = null;
+    }
+    currentRoomName = null;
+  },
+
   /**
    * Updates user presence timestamp in Firestore
    */
